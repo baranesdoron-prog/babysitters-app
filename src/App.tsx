@@ -16,7 +16,14 @@ export function App() {
   if (state.status === 'signed-out') return <Login />
 
   const role = state.user?.role ?? null
-  if (!role) return <PendingRole email={state.session.user.email ?? null} />
+  if (!role) {
+    return (
+      <PendingRole
+        email={state.session.user.email ?? null}
+        requestedParent={state.session.user.user_metadata?.requested_role === 'parent'}
+      />
+    )
+  }
 
   if (role === 'child') {
     return (
