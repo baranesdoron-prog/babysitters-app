@@ -16,6 +16,7 @@ const NAV: Record<AppRole, { label: string; icon: LucideIcon; to: string }[]> = 
     { label: 'המשמרות שלי', icon: ClipboardList, to: '/my-shifts' },
     { label: 'הזמינות שלי', icon: Clock, to: '/my-availability' },
   ],
+  child: [],
 }
 
 export function AppShell({ role }: { role: AppRole }) {
@@ -37,6 +38,7 @@ export function AppShell({ role }: { role: AppRole }) {
         <Outlet />
       </main>
 
+      {NAV[role].length > 0 && (
       <nav
         className="bg-card fixed inset-x-0 bottom-0 z-10 flex items-center justify-around border-t py-2"
         style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
@@ -57,6 +59,7 @@ export function AppShell({ role }: { role: AppRole }) {
           </NavLink>
         ))}
       </nav>
+      )}
     </div>
   )
 }

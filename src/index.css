@@ -1,78 +1,110 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* shadcn components ship dark: classes; keep them inert (no .dark class is ever set). */
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design tokens — the single source of colors, radii and fonts.
+ * See AGENTS.md → "Design system". Never hard-code these hexes in components;
+ * use the Tailwind classes they generate (bg-primary, text-night-foreground, …).
+ * Light theme only for now.
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-}
+  --radius: 0.75rem;                 /* 12px: inputs, buttons, segmented controls */
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  /* Neutrals */
+  --background: #F5F6F8;             /* app ground */
+  --foreground: #1F2430;             /* body text */
+  --card: #FFFFFF;
+  --card-foreground: #1F2430;
+  --popover: #FFFFFF;
+  --popover-foreground: #1F2430;
+  --muted: #F0F1F4;                  /* segmented-control track, quiet chips */
+  --muted-foreground: #5B6270;       /* secondary text (6.2:1 on white) */
+  --subtle-foreground: #8A909C;      /* tertiary text, large sizes only */
+  --border: #E4E6EB;
+  --input: #D6D9E0;
+  --ring: #0F766E;
+
+  /* Brand */
+  --primary: #0F766E;                /* teal: main actions, active nav, links */
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #E6F4F2;           /* teal tint behind icons, "confirmed" boxes */
+  --primary-strong: #0B5D57;         /* text on primary-soft */
+  --secondary: #F0F1F4;
+  --secondary-foreground: #1F2430;
+  --accent: #E6F4F2;
+  --accent-foreground: #0B5D57;
+
+  /* Day / night — the app's core concept. Day = amber, night = indigo. */
+  --day: #F59E0B;                    /* bars, top borders */
+  --day-soft: #FEF3C7;               /* tinted blocks */
+  --day-foreground: #92400E;         /* text on day-soft */
+  --night: #4F46E5;
+  --night-soft: #E0E7FF;
+  --night-foreground: #3730A3;
+  --night-deep: #312E81;             /* babysitter's night-shift header */
+
+  /* Status */
+  --pending-soft: #FDECC8;           /* "waiting for answer", "to pay" */
+  --pending-foreground: #92400E;
+  --success-soft: #D5EFEB;           /* "confirmed", "paid" */
+  --success-foreground: #0B5D57;
+  --warning-soft: #FFF1E6;           /* car-seat and other heads-ups */
+  --warning-foreground: #9A3412;
+  --destructive: #B42318;
+  --destructive-foreground: #FFFFFF;
 }
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 4px);   /* 16px: cards and sections */
+  --radius-2xl: calc(var(--radius) + 12px); /* 24px: bottom-sheet top corners */
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: "Assistant", system-ui, sans-serif;
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-strong: var(--primary-strong);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-day: var(--day);
+  --color-day-soft: var(--day-soft);
+  --color-day-foreground: var(--day-foreground);
+  --color-night: var(--night);
+  --color-night-soft: var(--night-soft);
+  --color-night-foreground: var(--night-foreground);
+  --color-night-deep: var(--night-deep);
+
+  --color-pending-soft: var(--pending-soft);
+  --color-pending-foreground: var(--pending-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --font-sans: "Assistant", system-ui, sans-serif;   /* everything */
+  --font-display: "Rubik", "Assistant", sans-serif;  /* page titles, big numbers */
 }
 
 @layer base {

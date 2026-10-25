@@ -24,7 +24,7 @@ export function useAppUser(): State {
     let cancelled = false
     supabase
       .from('app_users')
-      .select('id, email, full_name, role, babysitter_id')
+      .select('id, email, full_name, role, babysitter_id, child_id, photo_path')
       .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data }) => {

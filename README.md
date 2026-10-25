@@ -80,6 +80,12 @@ All of this is enforced with Row Level Security in Postgres
     where email = '<her email>';
    ```
 
+## Deploying
+
+See [DEPLOY.md](DEPLOY.md) — GitHub, Supabase (migrations, edge function, auth
+URLs, storage) and Netlify, step by step. To let the VS Code AI run it, paste
+[docs/deploy-prompt.md](docs/deploy-prompt.md) into the chat.
+
 ## Scripts
 
 - `npm run dev` — start the dev server

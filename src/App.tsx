@@ -18,6 +18,17 @@ export function App() {
   const role = state.user?.role ?? null
   if (!role) return <PendingRole email={state.session.user.email ?? null} />
 
+  if (role === 'child') {
+    return (
+      <Routes>
+        <Route element={<AppShell role="child" />}>
+          <Route path="/today" element={<Placeholder title="מי איתי היום" />} />
+          <Route path="*" element={<Navigate to="/today" replace />} />
+        </Route>
+      </Routes>
+    )
+  }
+
   if (role === 'babysitter') {
     return (
       <Routes>
