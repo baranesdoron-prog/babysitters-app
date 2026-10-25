@@ -1,4 +1,4 @@
-export type AppRole = 'parent' | 'babysitter' | 'child'
+export type AppRole = 'parent' | 'babysitter' | 'child' | 'admin'
 
 export interface AppUser {
   id: string

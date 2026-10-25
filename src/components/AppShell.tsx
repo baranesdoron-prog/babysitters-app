@@ -17,6 +17,7 @@ const NAV: Record<AppRole, { label: string; icon: LucideIcon; to: string }[]> = 
     { label: 'הזמינות שלי', icon: Clock, to: '/my-availability' },
   ],
   child: [],
+  admin: [],
 }
 
 export function AppShell({ role }: { role: AppRole }) {

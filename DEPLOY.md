@@ -114,16 +114,24 @@ Dashboard → Storage: bucket `photos`, **Public: off**.
 
 ## 4. First run (one time)
 
-1. Open the Netlify address on your phone, enter your email, open the link.
-   You'll land on the "waiting" screen.
-2. Supabase → **SQL Editor**:
+1. Sign in on the Netlify site with an email inbox you control. Open its magic
+   link; the account will wait without app access.
+2. To create the first administrator, use Supabase → **SQL Editor** once:
 
    ```sql
-   update app_users set role = 'parent' where email = 'YOUR@EMAIL';
+   update public.app_users
+      set role = 'admin'
+    where lower(email) = lower('YOUR_REAL_ADMIN_EMAIL');
    ```
 
-   Repeat for the second parent. Refresh the app — you're in.
-3. On the phone: Share → **Add to Home Screen**, so it opens like an app.
+   Use an address that can receive the app's magic link. `admin@babysitterz`
+   is not a deliverable email unless you configure that domain's mail. Do not
+   create a shared default password. Refresh the app to open the admin queue.
+3. Each parent submits a reciprocal pair request with the other parent's email.
+   The admin queue shows whether the second parent has registered. Approve only
+   after both accounts and emails are recognized; approval grants both parent
+   access.
+4. On the phone: Share → **Add to Home Screen**, so it opens like an app.
 
 ## 5. After every change
 
@@ -143,6 +151,6 @@ npx supabase functions deploy <name>   # only if you changed a function
 | White page, console says "Missing VITE_SUPABASE_URL" | Env vars missing on Netlify → add them, redeploy |
 | Sign-in link opens localhost / wrong site | Site URL / Redirect URLs in step 2d |
 | Sign-in email never arrives | Email rate limit → wait an hour or set up SMTP |
-| Signed in but stuck on "waiting" | Step 4.2 (set your role) |
+| Signed in but still waiting | Complete the reciprocal parent request; the admin must approve the pair |
 | Netlify build fails on Node | `NODE_VERSION = 22` env var |
 | Page refresh gives 404 | `netlify.toml` redirect missing — it's in the repo, check it was pushed |

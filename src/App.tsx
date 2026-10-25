@@ -6,6 +6,7 @@ import { Login } from '@/pages/Login'
 import { PendingRole } from '@/pages/PendingRole'
 import { Babysitters } from '@/pages/Babysitters'
 import { Placeholder } from '@/pages/Placeholder'
+import { AdminPairs } from '@/pages/AdminPairs'
 
 export function App() {
   const state = useAppUser()
@@ -20,10 +21,12 @@ export function App() {
     return (
       <PendingRole
         email={state.session.user.email ?? null}
-        requestedParent={state.session.user.user_metadata?.requested_role === 'parent'}
+        metadata={state.session.user.user_metadata}
       />
     )
   }
+
+  if (role === 'admin') return <AdminPairs />
 
   if (role === 'child') {
     return (
