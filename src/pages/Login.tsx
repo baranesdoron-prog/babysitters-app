@@ -2,13 +2,19 @@ import { useState, type FormEvent } from 'react'
 import { HeartHandshake } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
+import { Segmented } from '@/components/Segmented'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+// Children sign in with a username; their login lives at this made-up address.
+const CHILD_EMAIL_DOMAIN = 'kids.babysitters.invalid'
+
 // Passwordless sign-in: a magic link by email, for parents and babysitters alike.
+// The girls use "כניסת ילדים": username + password created by a parent.
 export function Login() {
+  const [mode, setMode] = useState<'adult' | 'child'>('adult')
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [requestParent, setRequestParent] = useState(false)
@@ -82,11 +88,23 @@ export function Login() {
           </p>
         </div>
         <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-[17px]">כניסה לחשבון</CardTitle>
+          <CardHeader className="flex flex-col gap-4">
+            <Segmented
+              label="סוג כניסה"
+              className="w-full"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'adult', label: 'הורים ובייביסיטריות' },
+                { value: 'child', label: 'כניסת ילדים' },
+              ]}
+            />
+            <CardTitle className="text-[17px]">{mode === 'child' ? 'שלום! מי נכנסת?' : 'כניסה לחשבון'}</CardTitle>
           </CardHeader>
         <CardContent>
-          {sent ? (
+          {mode === 'child' ? (
+            <ChildLogin />
+          ) : sent ? (
             <div className="flex flex-col gap-3 text-[15px]">
               <p>שלחנו קישור ל-{email}. פתחו אותו כדי להמשיך.</p>
               {error && <p className="text-warning-foreground" role="alert">{error}</p>}
@@ -173,5 +191,57 @@ export function Login() {
         </Card>
       </div>
     </div>
+  )
+}
+
+function ChildLogin() {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: `${username.trim().toLowerCase()}@${CHILD_EMAIL_DOMAIN}`,
+      password,
+    })
+    setBusy(false)
+    if (loginError) setError('שם המשתמש או הסיסמה לא נכונים. נסי שוב.')
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="childUsername">שם משתמש</Label>
+        <Input
+          id="childUsername"
+          dir="ltr"
+          required
+          autoCapitalize="none"
+          autoComplete="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="childPassword">סיסמה</Label>
+        <Input
+          id="childPassword"
+          type="password"
+          dir="ltr"
+          required
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
+      {error && <p className="text-destructive text-sm" role="alert">{error}</p>}
+      <Button type="submit" className="h-[52px] rounded-lg text-[17px] font-semibold" disabled={busy}>
+        {busy ? 'נכנסים…' : 'כניסה'}
+      </Button>
+    </form>
   )
 }

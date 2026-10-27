@@ -26,14 +26,14 @@ export function AppShell({ role, isAdmin = false }: { role: AppRole; isAdmin?: b
 
   return (
     <div className="mx-auto flex min-h-svh max-w-2xl flex-col">
-      <header className="flex items-center justify-between border-b px-4 py-3">
+      <header className="bg-card flex items-center justify-between border-b px-4 py-2">
         <p className="font-semibold">הבייביסיטריות שלנו</p>
         <button
           type="button"
           onClick={() => supabase.auth.signOut()}
-          className="text-muted-foreground flex items-center gap-1 text-sm"
+          className="text-muted-foreground flex min-h-11 items-center gap-1 text-sm"
         >
-          <LogOut className="size-4" />
+          <LogOut className="size-4" aria-hidden="true" />
           יציאה
         </button>
       </header>
@@ -53,12 +53,12 @@ export function AppShell({ role, isAdmin = false }: { role: AppRole; isAdmin?: b
             to={item.to}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center gap-0.5 px-2 py-1 text-xs font-medium',
-                isActive ? 'text-primary' : 'text-muted-foreground',
+                'flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 px-2 py-1 text-xs',
+                isActive ? 'text-primary font-semibold' : 'text-muted-foreground font-medium',
               )
             }
           >
-            <item.icon className="size-5" />
+            <item.icon className="size-[22px]" aria-hidden="true" />
             {item.label}
           </NavLink>
         ))}
