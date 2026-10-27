@@ -26,8 +26,6 @@ export function App() {
     )
   }
 
-  if (role === 'admin') return <AdminPairs />
-
   if (role === 'child') {
     return (
       <Routes>
@@ -53,11 +51,12 @@ export function App() {
 
   return (
     <Routes>
-      <Route element={<AppShell role="parent" />}>
+      <Route element={<AppShell role="parent" isAdmin={state.user?.is_admin ?? false} />}>
         <Route path="/calendar" element={<Placeholder title="יומן" />} />
         <Route path="/babysitters" element={<Babysitters />} />
         <Route path="/children" element={<Placeholder title="הבנות" />} />
         <Route path="/payments" element={<Placeholder title="תשלומים" />} />
+        {state.user?.is_admin && <Route path="/admin-pairs" element={<AdminPairs />} />}
         <Route path="*" element={<Navigate to="/calendar" replace />} />
       </Route>
     </Routes>

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { CalendarDays, Users, Baby, Wallet, ClipboardList, Clock, LogOut, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Users, Baby, Wallet, ClipboardList, Clock, LogOut, ShieldCheck, type LucideIcon } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/lib/types'
@@ -17,10 +17,13 @@ const NAV: Record<AppRole, { label: string; icon: LucideIcon; to: string }[]> = 
     { label: 'הזמינות שלי', icon: Clock, to: '/my-availability' },
   ],
   child: [],
-  admin: [],
 }
 
-export function AppShell({ role }: { role: AppRole }) {
+export function AppShell({ role, isAdmin = false }: { role: AppRole; isAdmin?: boolean }) {
+  const navItems = isAdmin && role === 'parent'
+    ? [...NAV[role], { label: 'בקשות הורים', icon: ShieldCheck, to: '/admin-pairs' }]
+    : NAV[role]
+
   return (
     <div className="mx-auto flex min-h-svh max-w-2xl flex-col">
       <header className="flex items-center justify-between border-b px-4 py-3">
@@ -39,12 +42,12 @@ export function AppShell({ role }: { role: AppRole }) {
         <Outlet />
       </main>
 
-      {NAV[role].length > 0 && (
+      {navItems.length > 0 && (
       <nav
         className="bg-card fixed inset-x-0 bottom-0 z-10 flex items-center justify-around border-t py-2"
         style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
       >
-        {NAV[role].map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

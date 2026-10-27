@@ -1,10 +1,11 @@
-export type AppRole = 'parent' | 'babysitter' | 'child' | 'admin'
+export type AppRole = 'parent' | 'babysitter' | 'child'
 
 export interface AppUser {
   id: string
   email: string | null
   full_name: string | null
   role: AppRole | null
+  is_admin: boolean
   babysitter_id: string | null
   child_id: string | null
   photo_path: string | null
