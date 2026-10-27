@@ -5,7 +5,17 @@ import { AppShell } from '@/components/AppShell'
 import { Login } from '@/pages/Login'
 import { PendingRole } from '@/pages/PendingRole'
 import { Babysitters } from '@/pages/Babysitters'
-import { Placeholder } from '@/pages/Placeholder'
+import { BabysitterForm } from '@/pages/BabysitterForm'
+import { Calendar } from '@/pages/Calendar'
+import { ShiftForm } from '@/pages/ShiftForm'
+import { ShiftDetail } from '@/pages/ShiftDetail'
+import { Children } from '@/pages/Children'
+import { ChildForm } from '@/pages/ChildForm'
+import { Payments } from '@/pages/Payments'
+import { Settings } from '@/pages/Settings'
+import { MyShifts } from '@/pages/MyShifts'
+import { MyAvailability } from '@/pages/MyAvailability'
+import { ChildToday } from '@/pages/ChildToday'
 import { AdminPairs } from '@/pages/AdminPairs'
 
 export function App() {
@@ -30,7 +40,7 @@ export function App() {
     return (
       <Routes>
         <Route element={<AppShell role="child" />}>
-          <Route path="/today" element={<Placeholder title="מי איתי היום" />} />
+          <Route path="/today" element={<ChildToday />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Route>
       </Routes>
@@ -38,11 +48,12 @@ export function App() {
   }
 
   if (role === 'babysitter') {
+    const babysitterId = state.user!.babysitter_id!
     return (
       <Routes>
         <Route element={<AppShell role="babysitter" />}>
-          <Route path="/my-shifts" element={<Placeholder title="המשמרות שלי" />} />
-          <Route path="/my-availability" element={<Placeholder title="הזמינות שלי" />} />
+          <Route path="/my-shifts" element={<MyShifts babysitterId={babysitterId} />} />
+          <Route path="/my-availability" element={<MyAvailability babysitterId={babysitterId} />} />
           <Route path="*" element={<Navigate to="/my-shifts" replace />} />
         </Route>
       </Routes>
@@ -52,10 +63,15 @@ export function App() {
   return (
     <Routes>
       <Route element={<AppShell role="parent" isAdmin={state.user?.is_admin ?? false} />}>
-        <Route path="/calendar" element={<Placeholder title="יומן" />} />
+        <Route path="/calendar" element={<Calendar />} />
+        <Route path="/shifts/new" element={<ShiftForm />} />
+        <Route path="/shifts/:id" element={<ShiftDetail />} />
         <Route path="/babysitters" element={<Babysitters />} />
-        <Route path="/children" element={<Placeholder title="הבנות" />} />
-        <Route path="/payments" element={<Placeholder title="תשלומים" />} />
+        <Route path="/babysitters/:id" element={<BabysitterForm />} />
+        <Route path="/children" element={<Children />} />
+        <Route path="/children/:id" element={<ChildForm />} />
+        <Route path="/payments" element={<Payments />} />
+        <Route path="/settings" element={<Settings />} />
         {state.user?.is_admin && <Route path="/admin-pairs" element={<AdminPairs />} />}
         <Route path="*" element={<Navigate to="/calendar" replace />} />
       </Route>
