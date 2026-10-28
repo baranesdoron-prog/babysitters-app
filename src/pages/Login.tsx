@@ -112,6 +112,14 @@ export function Login() {
             </div>
           ) : (
             <form onSubmit={onSubmit} className="flex flex-col gap-4">
+              {!requestParent && (
+                <div className="bg-primary-soft text-primary-strong rounded-lg p-3 text-sm">
+                  <p className="font-semibold">כניסה ראשונה? מתחילים בקישור לאימייל</p>
+                  <p className="mt-1">
+                    אחרי הכניסה, לחצו על סמל טביעת האצבע למעלה כדי להגדיר Face ID או טביעת אצבע. בפעם הבאה תוכלו להיכנס עם מפתח הגישה.
+                  </p>
+                </div>
+              )}
               {requestParent && (
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="fullName">השם שלך</Label>
@@ -182,10 +190,15 @@ export function Login() {
                 {busy ? 'שולחים…' : requestParent ? 'שלחו קישורים לשנינו' : 'שלחו לי קישור כניסה'}
               </Button>
               {!requestParent && (
-                <Button type="button" variant="outline" disabled={passkeyBusy} onClick={() => void onPasskeySignIn()}>
-                  <Fingerprint className="size-5" />
-                  {passkeyBusy ? 'בודקים…' : 'כניסה עם מפתח גישה'}
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button type="button" variant="outline" disabled={passkeyBusy} onClick={() => void onPasskeySignIn()}>
+                    <Fingerprint className="size-5" />
+                    {passkeyBusy ? 'בודקים…' : 'כניסה עם מפתח גישה שהוגדר'}
+                  </Button>
+                  <p className="text-muted-foreground text-center text-sm">
+                    כבר הגדרתם מפתח גישה במכשיר הזה? השתמשו בו לכניסה מהירה.
+                  </p>
+                </div>
               )}
             </form>
           )}
