@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { HeartHandshake } from 'lucide-react'
+import { Fingerprint, HeartHandshake } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ export function Login() {
   const [partnerName, setPartnerName] = useState('')
   const [partnerEmail, setPartnerEmail] = useState('')
   const [sent, setSent] = useState(false)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -66,6 +67,19 @@ export function Login() {
 
     setBusy(false)
     setSent(true)
+  }
+
+  async function onPasskeySignIn() {
+    setPasskeyBusy(true)
+    setError(null)
+    try {
+      const { error: passkeyError } = await supabase.auth.signInWithPasskey()
+      if (passkeyError) setError('לא הצלחנו להתחבר עם מפתח הגישה. אפשר לנסות שוב או להשתמש בקישור באימייל.')
+    } catch {
+      setError('הכניסה עם מפתח גישה לא זמינה במכשיר או בדפדפן הזה. אפשר להיכנס עם קישור באימייל.')
+    } finally {
+      setPasskeyBusy(false)
+    }
   }
 
   return (
@@ -167,6 +181,12 @@ export function Login() {
               <Button type="submit" disabled={busy}>
                 {busy ? 'שולחים…' : requestParent ? 'שלחו קישורים לשנינו' : 'שלחו לי קישור כניסה'}
               </Button>
+              {!requestParent && (
+                <Button type="button" variant="outline" disabled={passkeyBusy} onClick={() => void onPasskeySignIn()}>
+                  <Fingerprint className="size-5" />
+                  {passkeyBusy ? 'בודקים…' : 'כניסה עם מפתח גישה'}
+                </Button>
+              )}
             </form>
           )}
         </CardContent>
