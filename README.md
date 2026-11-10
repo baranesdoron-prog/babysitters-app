@@ -7,7 +7,7 @@ Built on the same stack and layout as barburg.
 ## Stack
 
 - Frontend: React, TypeScript, Vite, Tailwind CSS, shadcn/ui
-- Backend: Supabase (Postgres, Row Level Security, Supabase Auth — magic link)
+- Backend: Supabase (Postgres, Row Level Security, Supabase Auth — username + password, passkeys)
 - Hosting: Netlify (frontend), Supabase (backend)
 
 ## Access model
@@ -61,24 +61,11 @@ All of this is enforced with Row Level Security in Postgres
    npm run dev
    ```
 
-7. **Bootstrap the parents.** Sign in once through the app (you'll land on the
-   "waiting" screen), then in the Supabase SQL editor:
+7. **Bootstrap the parents.** Give each parent a username and password with
+   the SQL in [DEPLOY.md](DEPLOY.md) ("First run").
 
-   ```sql
-   update app_users set role = 'parent' where email = '<your email>';
-   ```
-
-   Repeat for the second parent.
-
-8. **Linking a babysitter.** Add her to `babysitters`, have her sign in once,
-   then:
-
-   ```sql
-   update app_users
-      set role = 'babysitter',
-          babysitter_id = (select id from babysitters where full_name = '<name>')
-    where email = '<her email>';
-   ```
+8. **Babysitters and the girls.** A parent adds her in the app, then sets her
+   username and password in the "כניסה לאפליקציה" section of her profile.
 
 ## Deploying
 
@@ -96,8 +83,6 @@ URLs, storage) and Netlify, step by step. To let the VS Code AI run it, paste
 
 ## Project status
 
-Foundation: full schema + RLS from the spec, magic-link sign-in, role gate,
-parent and babysitter navigation, and a read-only babysitters list. Next:
-babysitter add/edit (including the car-seat question), children and their
-schedules, calendar and shift creation, ordered requests over WhatsApp, and
-payment calculation (day / night split at `settings.night_start`, default 20:00).
+All screens are built: calendar and shifts, babysitters, the girls, payments,
+settings, the babysitter's shifts and availability, and the child's screen.
+Sign-in is username + password with optional passkeys (fingerprint / Face ID).

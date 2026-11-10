@@ -67,10 +67,11 @@ npx supabase db push             # applies 0002 and 0003 (0001 is already in)
 > `main`, step 1 may have applied them already — `migration list` will show it.
 > Don't push twice; `db push` only applies what's missing.
 
-### 2c. Edge function (child logins)
+### 2c. Edge function (logins for babysitters and the girls)
 
 ```powershell
-npx supabase functions deploy create-child-login --project-ref rpildkvkpdvbcisgxcpd
+npx supabase functions deploy manage-login --project-ref rpildkvkpdvbcisgxcpd
+npx supabase functions delete create-child-login --project-ref rpildkvkpdvbcisgxcpd   # replaced by manage-login
 ```
 
 ### 2d. Auth settings (Dashboard → Authentication → URL Configuration)
@@ -80,12 +81,19 @@ npx supabase functions deploy create-child-login --project-ref rpildkvkpdvbcisgx
   - `https://babysitters-app.netlify.app/**`
   - `http://localhost:5173/**`
 
-Also in Authentication → Providers → Email: keep **Email** enabled (magic link
-for parents and babysitters, password for the girls' logins).
+Sign-in is username + password (stored as `<username>@users.babysitters.invalid`,
+never mailed) plus passkeys. Push the auth settings in `supabase/config.toml`
+(passkeys on, public sign-ups off):
 
-> The built-in email sender is limited to a few emails per hour. Fine for the
-> family; if sign-in links stop arriving, set up custom SMTP
-> (Authentication → Emails → SMTP Settings).
+```powershell
+npx supabase config push --project-ref rpildkvkpdvbcisgxcpd
+```
+
+Or in the Dashboard: Authentication → Providers → Email: keep **Email** enabled
+(it carries the passwords), turn **Allow new users to sign up** off; and enable
+passkeys with relying party ID `babysitterz.netlify.app` and origin
+`https://babysitterz.netlify.app`. Passkeys only work on that address, not on
+deploy previews or localhost.
 
 ### 2e. Storage
 
@@ -114,23 +122,46 @@ Dashboard → Storage: bucket `photos`, **Public: off**.
 
 ## 4. First run (one time)
 
-1. Sign in on the Netlify site with an email inbox you control. Open its magic
-   link; the account will wait without app access.
-2. To create the first administrator, use Supabase → **SQL Editor** once:
+1. Give each parent a username and password. For an account that does not
+   exist yet, first create it in Supabase → **Authentication → Users → Add
+   user** with the email `<username>@users.babysitters.invalid`, the password,
+   and **Auto Confirm User** on. Then, for every parent, run this once in the
+   **SQL Editor** (fill in the four values; don't save it with the password):
 
    ```sql
-   update public.app_users
-      set role = 'admin'
-    where lower(email) = lower('YOUR_REAL_ADMIN_EMAIL');
+   do $$
+   declare
+     v_current_email text := 'their current email, or the address above';
+     v_username      text := 'doron';
+     v_password      text := 'a password';
+     v_full_name     text := 'דורון';
+     v_login         text := lower(v_username) || '@users.babysitters.invalid';
+     v_id            uuid;
+   begin
+     select id into v_id from auth.users where lower(email) = lower(v_current_email);
+     if v_id is null then
+       raise exception 'No account for %: add it under Authentication → Users first.', v_current_email;
+     end if;
+     update auth.users
+        set email = v_login,
+            encrypted_password = extensions.crypt(v_password, extensions.gen_salt('bf')),
+            email_confirmed_at = coalesce(email_confirmed_at, now()),
+            updated_at = now()
+      where id = v_id;
+     update auth.identities
+        set identity_data = identity_data || jsonb_build_object('email', v_login, 'email_verified', true)
+      where user_id = v_id and provider = 'email';
+     update public.app_users
+        set role = 'parent', email = v_login, full_name = v_full_name
+      where id = v_id;
+   end $$;
    ```
 
-   Use an address that can receive the app's magic link. `admin@babysitterz`
-   is not a deliverable email unless you configure that domain's mail. Do not
-   create a shared default password. Refresh the app to open the admin queue.
-3. Each parent submits a reciprocal pair request with the other parent's email.
-   The admin queue shows whether the second parent has registered. Approve only
-   after both accounts and emails are recognized; approval grants both parent
-   access.
+2. Sign in on the Netlify site with that username and password, then tap the
+   fingerprint button at the top to turn on Face ID / fingerprint sign-in for
+   that phone.
+3. Add babysitters and the girls in the app and give each a username and
+   password from her profile ("כניסה לאפליקציה").
 4. On the phone: Share → **Add to Home Screen**, so it opens like an app.
 
 ## 5. After every change

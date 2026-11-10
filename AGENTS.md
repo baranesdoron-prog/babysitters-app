@@ -59,11 +59,14 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
    her screen reads only `child_upcoming_shifts()` (confirmed shifts, next 7 days:
    who, when, phone, photo, pickup place/time). Never widen this — the
    `babysitters` and `shifts` rows hold rates and family details.
-5. **Child logins** are created only by a parent through the
-   `create-child-login` edge function (username + password, no email; stored as
-   `<username>@kids.babysitters.invalid`). The login screen offers a "כניסת
-   ילדים" mode that turns the username into that address and calls
-   `signInWithPassword`.
+5. **Logins are username + password, no email.** A username is stored as
+   `<username>@users.babysitters.invalid` (never mailed to; older child logins
+   use `@kids.babysitters.invalid`, which the login screen still tries).
+   Babysitters' and the girls' logins are created or reset only by a parent
+   through the `manage-login` edge function; parents' own logins are set once
+   in the SQL editor (DEPLOY.md, "First run"). After signing in, the fingerprint
+   button in the header saves a passkey (`registerPasskey()`), and the login
+   screen offers `signInWithPasskey()`. Public sign-ups are off.
 6. **Photos** live in the private Storage bucket `photos` at
    `parents/<user id>.jpg`, `babysitters/<id>.jpg`, `children/<id>.jpg`; the row's
    `photo_path` holds that path. Show them via `createSignedUrl` (short expiry),
