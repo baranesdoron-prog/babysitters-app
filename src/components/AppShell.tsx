@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { CalendarDays, Users, Baby, Wallet, ClipboardList, Clock, LogOut, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Users, Baby, Wallet, ClipboardList, Clock, Fingerprint, LogOut, type LucideIcon } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/lib/types'
@@ -19,24 +20,60 @@ const NAV: Record<AppRole, { label: string; icon: LucideIcon; to: string }[]> = 
   child: [],
 }
 
-export function AppShell({ role, isAdmin = false }: { role: AppRole; isAdmin?: boolean }) {
-  const navItems = isAdmin && role === 'parent'
-    ? [...NAV[role], { label: 'בקשות הורים', icon: ShieldCheck, to: '/admin-pairs' }]
-    : NAV[role]
+export function AppShell({ role }: { role: AppRole }) {
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const [passkeyNotice, setPasskeyNotice] = useState<string | null>(null)
+  const navItems = NAV[role]
+
+  // Saves a passkey on this device, so next time Face ID / fingerprint signs in.
+  async function registerPasskey() {
+    setPasskeyBusy(true)
+    setPasskeyNotice(null)
+    try {
+      const { error } = await supabase.auth.registerPasskey()
+      setPasskeyNotice(
+        error
+          ? 'לא הצלחנו להפעיל כניסה עם טביעת אצבע. נסו שוב במכשיר עם נעילת מסך.'
+          : 'מעולה! מעכשיו אפשר להיכנס במכשיר הזה עם טביעת אצבע או Face ID.',
+      )
+    } catch {
+      setPasskeyNotice('כניסה עם טביעת אצבע לא זמינה בדפדפן הזה. אפשר להמשיך עם שם משתמש וסיסמה.')
+    } finally {
+      setPasskeyBusy(false)
+    }
+  }
 
   return (
     <div className="mx-auto flex min-h-svh max-w-2xl flex-col">
       <header className="bg-card flex items-center justify-between border-b px-4 py-2">
         <p className="font-semibold">הבייביסיטריות שלנו</p>
-        <button
-          type="button"
-          onClick={() => supabase.auth.signOut()}
-          className="text-muted-foreground flex min-h-11 items-center gap-1 text-sm"
-        >
-          <LogOut className="size-4" aria-hidden="true" />
-          יציאה
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="הפעלת כניסה עם טביעת אצבע"
+            title="הפעלת כניסה עם טביעת אצבע"
+            disabled={passkeyBusy}
+            onClick={() => void registerPasskey()}
+            className="text-muted-foreground flex size-11 items-center justify-center rounded-lg disabled:opacity-50"
+          >
+            <Fingerprint className="size-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => void supabase.auth.signOut()}
+            className="text-muted-foreground flex min-h-11 items-center gap-1 px-2 text-sm"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            יציאה
+          </button>
+        </div>
       </header>
+
+      {passkeyNotice && (
+        <p className="bg-primary-soft text-primary-strong mx-4 mt-3 rounded-lg p-3 text-sm" role="status">
+          {passkeyNotice}
+        </p>
+      )}
 
       <main className="flex-1 p-4 pb-24">
         <Outlet />

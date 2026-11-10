@@ -1,77 +1,50 @@
 import { useState, type FormEvent } from 'react'
-import { HeartHandshake } from 'lucide-react'
+import { Fingerprint, HeartHandshake } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
-import { Segmented } from '@/components/Segmented'
+import { loginEmails } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-// Children sign in with a username; their login lives at this made-up address.
-const CHILD_EMAIL_DOMAIN = 'kids.babysitters.invalid'
-
-// Passwordless sign-in: a magic link by email, for parents and babysitters alike.
-// The girls use "כניסת ילדים": username + password created by a parent.
+// Username + password for everyone (parents, babysitters and the girls).
+// Logins are created by a parent; after signing in, the fingerprint button in
+// the header saves a passkey so the next sign-in is Face ID / fingerprint.
 export function Login() {
-  const [mode, setMode] = useState<'adult' | 'child'>('adult')
-  const [email, setEmail] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [requestParent, setRequestParent] = useState(false)
-  const [partnerName, setPartnerName] = useState('')
-  const [partnerEmail, setPartnerEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    const emailRedirectTo = window.location.origin
-    const { error: loginError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo,
-        ...(requestParent && {
-          data: {
-            full_name: fullName.trim(),
-            requested_role: 'parent',
-            parent_partner_name: partnerName.trim(),
-            parent_partner_email: partnerEmail.trim().toLowerCase(),
-          },
-        }),
-      },
-    })
-    if (loginError) {
-      setBusy(false)
-      setError('לא הצלחנו לשלוח קישור. נסו שוב.')
-      return
-    }
-
-    if (requestParent) {
-      const { error: inviteError } = await supabase.auth.signInWithOtp({
-        email: partnerEmail.trim().toLowerCase(),
-        options: {
-          emailRedirectTo,
-          data: {
-            full_name: partnerName.trim(),
-            requested_role: 'parent',
-            parent_partner_name: fullName.trim(),
-            parent_partner_email: email.trim().toLowerCase(),
-          },
-        },
-      })
-      if (inviteError) {
-        setBusy(false)
-        setError('קישור הכניסה נשלח אלייך, אבל לא הצלחנו לשלוח הזמנה להורה השני. אפשר לשלוח אותה שוב בהמשך.')
-        setSent(true)
-        return
+    let failed = true
+    for (const email of loginEmails(username)) {
+      const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
+      if (!loginError) {
+        failed = false
+        break
       }
     }
-
     setBusy(false)
-    setSent(true)
+    if (failed) setError('שם המשתמש או הסיסמה לא נכונים. נסו שוב.')
+  }
+
+  async function onPasskeySignIn() {
+    setPasskeyBusy(true)
+    setError(null)
+    try {
+      const { error: passkeyError } = await supabase.auth.signInWithPasskey()
+      if (passkeyError) setError('לא הצלחנו להיכנס עם טביעת אצבע. נסו שוב או היכנסו עם שם משתמש וסיסמה.')
+    } catch {
+      setError('כניסה עם טביעת אצבע לא זמינה במכשיר או בדפדפן הזה. היכנסו עם שם משתמש וסיסמה.')
+    } finally {
+      setPasskeyBusy(false)
+    }
   }
 
   return (
@@ -88,160 +61,65 @@ export function Login() {
           </p>
         </div>
         <Card className="w-full">
-          <CardHeader className="flex flex-col gap-4">
-            <Segmented
-              label="סוג כניסה"
-              className="w-full"
-              value={mode}
-              onChange={setMode}
-              options={[
-                { value: 'adult', label: 'הורים ובייביסיטריות' },
-                { value: 'child', label: 'כניסת ילדים' },
-              ]}
-            />
-            <CardTitle className="text-[17px]">{mode === 'child' ? 'שלום! מי נכנסת?' : 'כניסה לחשבון'}</CardTitle>
+          <CardHeader>
+            <CardTitle className="text-[17px]">כניסה לחשבון</CardTitle>
           </CardHeader>
-        <CardContent>
-          {mode === 'child' ? (
-            <ChildLogin />
-          ) : sent ? (
-            <div className="flex flex-col gap-3 text-[15px]">
-              <p>שלחנו קישור ל-{email}. פתחו אותו כדי להמשיך.</p>
-              {error && <p className="text-warning-foreground" role="alert">{error}</p>}
-              {requestParent && !error && (
-                <p className="text-muted-foreground">
-                  שלחנו גם הזמנה ל-{partnerEmail}. אחרי ששניכם תיכנסו, הבקשה תמתין לאישור מנהל.
-                </p>
-              )}
+          <CardContent className="flex flex-col gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[52px] rounded-lg text-[17px] font-semibold"
+              disabled={passkeyBusy}
+              onClick={() => void onPasskeySignIn()}
+            >
+              <Fingerprint className="size-5" aria-hidden="true" />
+              {passkeyBusy ? 'בודקים…' : 'כניסה עם טביעת אצבע'}
+            </Button>
+            <p className="text-muted-foreground -mt-2 text-center text-sm">
+              עובד אחרי שהפעלתם טביעת אצבע במכשיר הזה (הסמל למעלה, אחרי הכניסה).
+            </p>
+
+            <div className="text-muted-foreground flex items-center gap-3 text-sm" aria-hidden="true">
+              <span className="bg-border h-px flex-1" />
+              או
+              <span className="bg-border h-px flex-1" />
             </div>
-          ) : (
+
             <form onSubmit={onSubmit} className="flex flex-col gap-4">
-              {requestParent && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="fullName">השם שלך</Label>
-                  <Input
-                    id="fullName"
-                    required
-                    autoComplete="name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                </div>
-              )}
               <div className="flex flex-col gap-2">
-                <Label htmlFor="email">אימייל</Label>
+                <Label htmlFor="username">שם משתמש</Label>
                 <Input
-                  id="email"
-                  type="email"
+                  id="username"
                   dir="ltr"
                   required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                 />
               </div>
-              <label className="border-input flex min-h-11 items-start gap-3 rounded-lg border p-3">
-                <input
-                  type="checkbox"
-                  className="accent-primary mt-1 size-4 shrink-0"
-                  checked={requestParent}
-                  onChange={(e) => setRequestParent(e.target.checked)}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="password">סיסמה</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  dir="ltr"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
-                <span className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">אני הורה</span>
-                  <span className="text-muted-foreground text-sm">
-                    נשלח קישור גם להורה השני. הגישה תיפתח אחרי ששניכם תירשמו ואישור מנהל.
-                  </span>
-                </span>
-              </label>
-              {requestParent && (
-                <div className="border-border flex flex-col gap-3 border-s-2 ps-3">
-                  <p className="text-sm font-semibold">פרטי ההורה השני</p>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="partnerName">שם</Label>
-                    <Input
-                      id="partnerName"
-                      required
-                      autoComplete="name"
-                      value={partnerName}
-                      onChange={(e) => setPartnerName(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="partnerEmail">אימייל להזמנה</Label>
-                    <Input
-                      id="partnerEmail"
-                      type="email"
-                      dir="ltr"
-                      required
-                      autoComplete="email"
-                      value={partnerEmail}
-                      onChange={(e) => setPartnerEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-              {error && <p className="text-destructive text-sm">{error}</p>}
-              <Button type="submit" disabled={busy}>
-                {busy ? 'שולחים…' : requestParent ? 'שלחו קישורים לשנינו' : 'שלחו לי קישור כניסה'}
+              </div>
+              {error && <p className="text-destructive text-sm" role="alert">{error}</p>}
+              <Button type="submit" className="h-[52px] rounded-lg text-[17px] font-semibold" disabled={busy}>
+                {busy ? 'נכנסים…' : 'כניסה'}
               </Button>
+              <p className="text-muted-foreground text-center text-sm">אין לכם שם משתמש? בקשו מההורים.</p>
             </form>
-          )}
-        </CardContent>
+          </CardContent>
         </Card>
       </div>
     </div>
-  )
-}
-
-function ChildLogin() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email: `${username.trim().toLowerCase()}@${CHILD_EMAIL_DOMAIN}`,
-      password,
-    })
-    setBusy(false)
-    if (loginError) setError('שם המשתמש או הסיסמה לא נכונים. נסי שוב.')
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="childUsername">שם משתמש</Label>
-        <Input
-          id="childUsername"
-          dir="ltr"
-          required
-          autoCapitalize="none"
-          autoComplete="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="childPassword">סיסמה</Label>
-        <Input
-          id="childPassword"
-          type="password"
-          dir="ltr"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-      {error && <p className="text-destructive text-sm" role="alert">{error}</p>}
-      <Button type="submit" className="h-[52px] rounded-lg text-[17px] font-semibold" disabled={busy}>
-        {busy ? 'נכנסים…' : 'כניסה'}
-      </Button>
-    </form>
   )
 }

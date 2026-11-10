@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 
 import { AvatarPicker } from '@/components/Avatar'
+import { LoginSection } from '@/components/LoginSection'
 import { Segmented } from '@/components/Segmented'
 import {
   CallButton,
@@ -12,7 +13,6 @@ import {
   Loading,
   PageHeader,
   PrimaryButton,
-  SecondaryButton,
   Section,
   TextButton,
 } from '@/components/bits'
@@ -187,7 +187,7 @@ export function ChildForm() {
           <ScheduleSection childId={data.child.id} rows={data.schedule} onChange={reload} />
           <ActivitiesSection childId={data.child.id} rows={data.activities} onChange={reload} />
           <ContactsSection childId={data.child.id} rows={data.contacts} onChange={reload} />
-          <LoginSection childId={data.child.id} loginEmail={data.loginEmail} onChange={reload} />
+          <LoginSection kind="child" id={data.child.id} loginEmail={data.loginEmail} onChange={reload} />
         </>
       )}
     </div>
@@ -354,57 +354,6 @@ function ContactsSection({ childId, rows, onChange }: { childId: string; rows: C
       </Select>
       <TextButton onClick={add} disabled={!name.trim() || !phone.trim()}>+ איש קשר</TextButton>
       {err && <ErrorText>{err}</ErrorText>}
-    </Section>
-  )
-}
-
-/** A username + password login for her own "who's with me today" screen. */
-function LoginSection({ childId, loginEmail, onChange }: { childId: string; loginEmail: string | null; onChange: () => void }) {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  if (loginEmail) {
-    return (
-      <Section title="כניסה שלה לאפליקציה">
-        <p className="text-[15px]">
-          שם משתמש: <span dir="ltr" className="font-semibold">{loginEmail.split('@')[0]}</span>
-        </p>
-        <p className="text-muted-foreground text-sm">היא נכנסת דרך "כניסת ילדים" ורואה רק מי איתה ומתי.</p>
-      </Section>
-    )
-  }
-
-  async function create() {
-    setBusy(true)
-    setErr(null)
-    const { error } = await supabase.functions.invoke('create-child-login', {
-      body: { child_id: childId, username: username.trim().toLowerCase(), password },
-    })
-    setBusy(false)
-    if (error) {
-      setErr('לא הצלחנו ליצור כניסה. אולי שם המשתמש תפוס?')
-      return
-    }
-    onChange()
-  }
-
-  const valid = /^[a-z0-9._-]{3,30}$/.test(username.trim().toLowerCase()) && password.length >= 6
-
-  return (
-    <Section title="כניסה שלה לאפליקציה">
-      <p className="text-muted-foreground text-sm">בלי אימייל: שם משתמש באנגלית וסיסמה. היא תראה רק מי איתה ומתי.</p>
-      <Field label="שם משתמש" htmlFor="username" hint="אותיות באנגלית ומספרים, לפחות 3">
-        <Input id="username" dir="ltr" autoCapitalize="none" value={username} onChange={(e) => setUsername(e.target.value)} />
-      </Field>
-      <Field label="סיסמה" htmlFor="password" hint="לפחות 6 תווים">
-        <Input id="password" dir="ltr" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
-      </Field>
-      {err && <ErrorText>{err}</ErrorText>}
-      <SecondaryButton type="button" disabled={!valid || busy} onClick={create}>
-        {busy ? 'יוצרים…' : 'ליצור כניסה'}
-      </SecondaryButton>
     </Section>
   )
 }

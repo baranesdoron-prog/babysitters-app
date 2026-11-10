@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Moon, Sun } from 'lucide-react'
 
 import { AvatarPicker } from '@/components/Avatar'
+import { LoginSection } from '@/components/LoginSection'
 import { Segmented } from '@/components/Segmented'
 import { CheckRow, ErrorText, Field, Loading, PageHeader, PrimaryButton, Section } from '@/components/bits'
 import { Input, Textarea } from '@/components/ui/input'
@@ -41,6 +42,13 @@ export function BabysitterForm() {
   const [draft, setDraft] = useState<Draft | null>(isNew ? EMPTY : null)
   const [busy, setBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Her login (if any) is loaded separately, so saving the form doesn't reset it.
+  const { data: login, reload: reloadLogin } = useLoad(async () => {
+    if (isNew) return null
+    const res = await supabase.from('app_users').select('email').eq('babysitter_id', id!).maybeSingle()
+    return { email: (res.data?.email as string | undefined) ?? null }
+  }, [id])
 
   const { data: existing, error } = useLoad(async () => {
     if (isNew) return null
@@ -103,6 +111,7 @@ export function BabysitterForm() {
   }
 
   return (
+    <div className="flex flex-col gap-3.5">
     <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
       <PageHeader title={isNew ? 'בייביסיטר חדשה' : draft.full_name || 'בייביסיטר'} back="/babysitters" />
 
@@ -163,5 +172,9 @@ export function BabysitterForm() {
       {saveError && <ErrorText>{saveError}</ErrorText>}
       <PrimaryButton type="submit" disabled={busy}>{busy ? 'שומרים…' : 'שמירה'}</PrimaryButton>
     </form>
+      {!isNew && login && (
+        <LoginSection kind="babysitter" id={id!} loginEmail={login.email} onChange={reloadLogin} />
+      )}
+    </div>
   )
 }

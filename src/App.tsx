@@ -16,7 +16,6 @@ import { Settings } from '@/pages/Settings'
 import { MyShifts } from '@/pages/MyShifts'
 import { MyAvailability } from '@/pages/MyAvailability'
 import { ChildToday } from '@/pages/ChildToday'
-import { AdminPairs } from '@/pages/AdminPairs'
 
 export function App() {
   const state = useAppUser()
@@ -28,12 +27,7 @@ export function App() {
 
   const role = state.user?.role ?? null
   if (!role) {
-    return (
-      <PendingRole
-        email={state.session.user.email ?? null}
-        metadata={state.session.user.user_metadata}
-      />
-    )
+    return <PendingRole />
   }
 
   if (role === 'child') {
@@ -62,7 +56,7 @@ export function App() {
 
   return (
     <Routes>
-      <Route element={<AppShell role="parent" isAdmin={state.user?.is_admin ?? false} />}>
+      <Route element={<AppShell role="parent" />}>
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/shifts/new" element={<ShiftForm />} />
         <Route path="/shifts/:id" element={<ShiftDetail />} />
@@ -72,7 +66,6 @@ export function App() {
         <Route path="/children/:id" element={<ChildForm />} />
         <Route path="/payments" element={<Payments />} />
         <Route path="/settings" element={<Settings />} />
-        {state.user?.is_admin && <Route path="/admin-pairs" element={<AdminPairs />} />}
         <Route path="*" element={<Navigate to="/calendar" replace />} />
       </Route>
     </Routes>
