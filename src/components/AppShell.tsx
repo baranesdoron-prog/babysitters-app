@@ -10,7 +10,7 @@ const NAV: Record<AppRole, { label: string; icon: LucideIcon; to: string }[]> = 
   parent: [
     { label: 'יומן', icon: CalendarDays, to: '/calendar' },
     { label: 'בייביסיטריות', icon: Users, to: '/babysitters' },
-    { label: 'הבנות', icon: Baby, to: '/children' },
+    { label: 'ילדים', icon: Baby, to: '/children' },
     { label: 'תשלומים', icon: Wallet, to: '/payments' },
   ],
   babysitter: [

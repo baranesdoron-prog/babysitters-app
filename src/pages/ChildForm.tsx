@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 
 import { AvatarPicker } from '@/components/Avatar'
+import { DateInput } from '@/components/DateInput'
 import { LoginSection } from '@/components/LoginSection'
 import { Segmented } from '@/components/Segmented'
 import {
@@ -145,7 +146,7 @@ export function ChildForm() {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="תאריך לידה" htmlFor="birth">
-              <Input id="birth" type="date" value={draft.birth_date} onChange={(e) => set('birth_date', e.target.value)} />
+              <DateInput id="birth" value={draft.birth_date} onChange={(v) => set('birth_date', v)} />
             </Field>
             <Field label="שעת שינה" htmlFor="bedtime">
               <Input id="bedtime" type="time" value={draft.bedtime} onChange={(e) => set('bedtime', e.target.value)} />
