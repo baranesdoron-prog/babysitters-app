@@ -7,7 +7,7 @@ import { APP_USER_COLUMNS } from '@/hooks/useAppUser'
 import { useLoad } from '@/hooks/useLoad'
 import { supabase } from '@/lib/supabase'
 import type { AppUser } from '@/lib/types'
-import { displayName } from '@/lib/people'
+import { displayName, MAX_PARENTS } from '@/lib/people'
 
 export function Parents({ myId, isAdmin = false }: { myId: string; isAdmin?: boolean }) {
   const created = (useLocation().state as { created?: string } | null)?.created
@@ -69,7 +69,11 @@ export function Parents({ myId, isAdmin = false }: { myId: string; isAdmin?: boo
           </Link>
         </section>
       )}
-      <Fab to="/parents/new" label="הוספת הורה" />
+      {rows && rows.length >= MAX_PARENTS ? (
+        <p className="text-muted-foreground text-center text-sm">במשפחה יש שני הורים, המספר המרבי.</p>
+      ) : (
+        <Fab to="/parents/new" label="הוספת הורה" />
+      )}
     </div>
   )
 }

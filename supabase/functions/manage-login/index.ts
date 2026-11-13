@@ -19,6 +19,8 @@ function jsonResponse(body: unknown, status: number) {
 }
 
 const LOGIN_DOMAIN = 'users.babysitters.invalid'
+// A family has at most two parents (also enforced by a trigger, migration 0010).
+const MAX_PARENTS = 2
 const USERNAME_RE = /^[a-z0-9._-]{3,30}$/
 
 const TARGETS = {
@@ -109,6 +111,7 @@ Deno.serve(async (req) => {
     const { error: linkError } = await adminClient.from('app_users').update(fields).eq('id', created.user.id)
     if (linkError) {
       await adminClient.auth.admin.deleteUser(created.user.id)
+      if (linkError.message.includes('family_full')) return jsonResponse({ error: 'Family already has two parents', code: 'family_full' }, 409)
       return jsonResponse({ error: linkError.message }, 500)
     }
     return jsonResponse({ userId: created.user.id, username }, 200)
@@ -145,6 +148,17 @@ Deno.serve(async (req) => {
       if (!family) return jsonResponse({ error: 'Family not found' }, 404)
     }
     if (!familyId) return jsonResponse({ error: 'No family' }, 400)
+
+    if (!createdFamily) {
+      const { count } = await adminClient
+        .from('app_users')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', familyId)
+        .eq('role', 'parent')
+      if ((count ?? 0) >= MAX_PARENTS) {
+        return jsonResponse({ error: 'Family already has two parents', code: 'family_full' }, 409)
+      }
+    }
 
     const response = await createLogin(`${first} ${last}`, {
       role: 'parent',

@@ -14,9 +14,13 @@ import { detailsRow, displayName, type ParentDetails } from '@/lib/people'
 type Details = ParentDetails
 const EMPTY: Details = { first_name: '', last_name: '', workplace: '', phone: '' }
 
-function functionError(error: unknown) {
-  const status = error instanceof FunctionsHttpError ? error.context.status : null
-  return status === 422 || status === 409 ? 'שם המשתמש הזה כבר תפוס. נסו שם אחר.' : 'לא הצלחנו לשמור. נסו שוב.'
+/** A Hebrew message for a manage-login failure (it answers with { code }). */
+async function functionError(error: unknown) {
+  if (!(error instanceof FunctionsHttpError)) return 'לא הצלחנו לשמור. נסו שוב.'
+  const body = await error.context.json().catch(() => null) as { code?: string } | null
+  if (body?.code === 'family_full') return 'במשפחה כבר יש שני הורים. אי אפשר להוסיף הורה נוסף.'
+  if (error.context.status === 422 || body?.code === 'email_exists') return 'שם המשתמש הזה כבר תפוס. נסו שם אחר.'
+  return 'לא הצלחנו לשמור. נסו שוב.'
 }
 
 /** The name / workplace / phone fields, shared by "add a parent" and "my profile". */
@@ -91,7 +95,7 @@ export function NewParentForm({ title, back, doneTo, familyId, newFamily = false
     })
     setBusy(false)
     if (fnError) {
-      setErr(functionError(fnError))
+      setErr(await functionError(fnError))
       return
     }
     navigate(doneTo, { replace: true, state: { created: name } })
@@ -182,7 +186,7 @@ function EditParent({ id }: { id: string }) {
     })
     setBusy(false)
     if (fnError) {
-      setErr(functionError(fnError))
+      setErr(await functionError(fnError))
       return
     }
     setPassword('')

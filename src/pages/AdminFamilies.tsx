@@ -6,7 +6,7 @@ import { Empty, ErrorText, Field, Loading, PageHeader, Pill, SecondaryButton, Te
 import { Input } from '@/components/ui/input'
 import { useLoad } from '@/hooks/useLoad'
 import { MIN_PASSWORD_LENGTH, usernameOf } from '@/lib/auth'
-import { displayName } from '@/lib/people'
+import { displayName, MAX_PARENTS } from '@/lib/people'
 import { supabase } from '@/lib/supabase'
 import type { AppUser, Family } from '@/lib/types'
 import { NewParentForm } from './ParentForm'
@@ -90,9 +90,13 @@ function FamilyCard({ family, parents, onChange }: { family: Family; parents: Pa
       <ul className="flex flex-col">
         {parents.map((p) => <ParentRowItem key={p.id} parent={p} onChange={onChange} />)}
       </ul>
-      <Link to={`/admin/families/${family.id}/parents/new`} className="text-primary flex min-h-11 items-center text-[15px] font-semibold">
-        + הורה למשפחה
-      </Link>
+      {parents.length >= MAX_PARENTS ? (
+        <p className="text-muted-foreground text-sm">שני הורים, המשפחה מלאה.</p>
+      ) : (
+        <Link to={`/admin/families/${family.id}/parents/new`} className="text-primary flex min-h-11 items-center text-[15px] font-semibold">
+          + הורה למשפחה
+        </Link>
+      )}
     </section>
   )
 }
