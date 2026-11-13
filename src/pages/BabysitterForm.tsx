@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Moon, Sun } from 'lucide-react'
 
 import { AvatarPicker } from '@/components/Avatar'
+import { ContactImport } from '@/components/ContactImport'
 import { LoginSection } from '@/components/LoginSection'
 import { Segmented } from '@/components/Segmented'
 import { CheckRow, ErrorText, Field, Loading, PageHeader, PrimaryButton, Section } from '@/components/bits'
@@ -10,6 +11,7 @@ import { Input, Textarea } from '@/components/ui/input'
 import { useLoad } from '@/hooks/useLoad'
 import { uploadPhoto } from '@/lib/photos'
 import { supabase } from '@/lib/supabase'
+import type { ImportedContact } from '@/lib/contacts'
 import type { Babysitter, RateType } from '@/lib/types'
 
 type Draft = Omit<Babysitter, 'id' | 'day_rate' | 'night_rate'> & { day_rate: string; night_rate: string }
@@ -42,6 +44,10 @@ export function BabysitterForm() {
   const [draft, setDraft] = useState<Draft | null>(isNew ? EMPTY : null)
   const [busy, setBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  // A photo imported from a contact before the babysitter exists: uploaded right after saving.
+  const [pendingPhoto, setPendingPhoto] = useState<Blob | null>(null)
+  const pendingPhotoUrl = useMemo(() => (pendingPhoto ? URL.createObjectURL(pendingPhoto) : null), [pendingPhoto])
+  useEffect(() => () => { if (pendingPhotoUrl) URL.revokeObjectURL(pendingPhotoUrl) }, [pendingPhotoUrl])
 
   // Her login (if any) is loaded separately, so saving the form doesn't reset it.
   const { data: login, reload: reloadLogin } = useLoad(async () => {
@@ -100,6 +106,13 @@ export function BabysitterForm() {
       setSaveError('לא הצלחנו לשמור. נסו שוב.')
       return
     }
+    if (isNew && pendingPhoto) {
+      // The babysitter is saved either way; a failed photo can be added again on her card.
+      try {
+        const path = await uploadPhoto('babysitters', res.data.id, new File([pendingPhoto], 'contact.jpg', { type: pendingPhoto.type }))
+        await supabase.from('babysitters').update({ photo_path: path }).eq('id', res.data.id)
+      } catch { /* shown as no photo; she can add one from her card */ }
+    }
     navigate(isNew ? `/babysitters/${res.data.id}` : '/babysitters', { replace: isNew })
   }
 
@@ -110,13 +123,32 @@ export function BabysitterForm() {
     setDraft((d) => (d ? { ...d, photo_path: path } : d))
   }
 
+  // Copy what the contact has; keep notes already written rather than overwrite them.
+  async function onImport(contact: ImportedContact) {
+    setDraft((d) => d && {
+      ...d,
+      full_name: contact.name ?? d.full_name,
+      phone: contact.phone ?? d.phone,
+      notes: d.notes?.trim() ? d.notes : contact.notes ?? d.notes,
+    })
+    if (!contact.photo) return
+    if (isNew) setPendingPhoto(contact.photo)
+    else await onPhoto(new File([contact.photo], 'contact.jpg', { type: contact.photo.type })).catch(() => undefined)
+  }
+
   return (
     <div className="flex flex-col gap-3.5">
     <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
       <PageHeader title={isNew ? 'בייביסיטר חדשה' : draft.full_name || 'בייביסיטר'} back="/babysitters" />
+      <ContactImport onImport={(c) => void onImport(c)} />
 
       <Section>
-        {isNew ? (
+        {isNew && pendingPhotoUrl ? (
+          <div className="flex flex-col items-center gap-2">
+            <img src={pendingPhotoUrl} alt="התמונה מאיש הקשר" className="size-20 rounded-full object-cover" />
+            <p className="text-muted-foreground text-sm">התמונה מאיש הקשר תישמר יחד איתה.</p>
+          </div>
+        ) : isNew ? (
           <p className="text-muted-foreground text-sm">אחרי השמירה אפשר להוסיף תמונה.</p>
         ) : (
           <AvatarPicker name={draft.full_name} path={draft.photo_path} onPick={onPhoto} />
