@@ -40,7 +40,7 @@ export function AdminFamilies() {
         to="/admin/families/new"
         className="bg-primary text-primary-foreground flex h-[52px] items-center justify-center rounded-lg text-[17px] font-semibold"
       >
-        + משפחה חדשה
+        + הזמנת משפחה
       </Link>
       {error && <ErrorText>{error}</ErrorText>}
       {!data && !error && <Loading />}
@@ -144,7 +144,7 @@ function ParentRowItem({ parent, onChange }: { parent: ParentRow; onChange: () =
 }
 
 export function AdminNewFamily() {
-  return <NewParentForm title="משפחה חדשה" back="/admin" doneTo="/admin" newFamily />
+  return <NewParentForm title="הזמנת משפחה" back="/admin" doneTo="/admin" newFamily />
 }
 
 export function AdminNewParent() {

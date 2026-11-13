@@ -74,7 +74,7 @@ export function App() {
         <Route path="/shifts/:id" element={<ShiftDetail />} />
         <Route path="/babysitters" element={<Babysitters />} />
         <Route path="/babysitters/:id" element={<BabysitterForm />} />
-        <Route path="/parents" element={<Parents myId={user.id} />} />
+        <Route path="/parents" element={<Parents myId={user.id} isAdmin={user.is_admin} />} />
         <Route path="/parents/:id" element={<ParentForm myId={user.id} />} />
         <Route path="/children" element={<Children />} />
         <Route path="/children/:id" element={<ChildForm />} />

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, UserPlus } from 'lucide-react'
 
 import { Avatar } from '@/components/Avatar'
 import { CallButton, Empty, ErrorText, Fab, Loading, PageHeader, Pill } from '@/components/bits'
@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import type { AppUser } from '@/lib/types'
 import { displayName } from '@/lib/people'
 
-export function Parents({ myId }: { myId: string }) {
+export function Parents({ myId, isAdmin = false }: { myId: string; isAdmin?: boolean }) {
   const created = (useLocation().state as { created?: string } | null)?.created
   const { data: rows, error } = useLoad(async () => {
     const res = await supabase.from('app_users').select(APP_USER_COLUMNS).eq('role', 'parent').order('first_name')
@@ -51,6 +51,24 @@ export function Parents({ myId }: { myId: string }) {
           </section>
         )
       })}
+      {isAdmin && (
+        <section className="bg-card flex flex-col gap-3 rounded-xl p-4">
+          <h2 className="text-[17px] font-bold">משפחות נוספות</h2>
+          <p className="text-muted-foreground text-sm">
+            הזמינו משפחה חדשה: יוצרים לה כניסה להורה הראשון, והוא יוסיף את ההורה השני בעצמו.
+          </p>
+          <Link
+            to="/admin/families/new"
+            className="border-input bg-card flex h-[52px] items-center justify-center gap-2 rounded-lg border text-[17px] font-semibold"
+          >
+            <UserPlus className="size-5" aria-hidden="true" />
+            הזמנת משפחה
+          </Link>
+          <Link to="/admin" className="text-primary flex min-h-11 items-center justify-center text-[15px] font-semibold">
+            לכל המשפחות
+          </Link>
+        </section>
+      )}
       <Fab to="/parents/new" label="הוספת הורה" />
     </div>
   )
