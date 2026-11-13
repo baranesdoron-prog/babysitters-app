@@ -118,9 +118,10 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
 - **Payments:** one payment may cover several unpaid shifts of the same
   babysitter. When paying, always look up her other unpaid shifts and offer to
   combine them (all ticked by default).
-- **Bit / PayBox:** there is no API or redirect back for personal payments. The
-  button copies the babysitter's phone and the amount to the clipboard, then
-  opens the app. When the user returns (`visibilitychange` → visible, only if
+- **Bit / PayBox:** there is no API, no link that fills in the recipient and
+  amount, and no redirect back for personal payments. The button copies only
+  the amount (a plain number) to the clipboard, then opens the app; the parent
+  picks the babysitter there by name. When the user returns (`visibilitychange` → visible, only if
   they left from this payment flow) show the confirm sheet: "כן, לסמן ששולם" /
   "עוד לא" / "שילמתי סכום אחר". Cash = mark as paid directly. Marking paid is
   always manual. Verify the app-opening links on a real phone before shipping.
