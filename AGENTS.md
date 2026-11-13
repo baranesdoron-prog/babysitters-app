@@ -59,7 +59,8 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
    (`app_users.is_admin`, "ניהול משפחות") sees families and their parents, never
    a family's kids, babysitters, shifts or payments. No sign-up or join requests:
    the admin creates a family with its first parent, and that parent adds the
-   other one from "הורים", no approval.
+   other one from "הורים", no approval. A family has **at most two parents**
+   (any genders); the trigger `limit_parents_per_family` enforces it.
 2. **Babysitters write through functions only:** `respond_to_request()`,
    `set_item_done()`, availability rows. Parents record payments with
    `record_payment()`. Don't add direct UPDATE policies for babysitters.

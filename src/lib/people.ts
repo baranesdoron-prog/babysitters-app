@@ -1,5 +1,8 @@
 import type { AppUser } from './types'
 
+/** A family has at most two parents (enforced by the database, migration 0010). */
+export const MAX_PARENTS = 2
+
 /** A parent's name: first + last, or the older single full_name. */
 export function displayName(u: Pick<AppUser, 'first_name' | 'last_name' | 'full_name'>) {
   return [u.first_name, u.last_name].filter(Boolean).join(' ') || u.full_name || 'הורה'
