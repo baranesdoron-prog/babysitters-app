@@ -157,7 +157,9 @@ Dashboard → Storage: bucket `photos`, **Public: off**.
    end $$;
    ```
 
-2. Sign in on the Netlify site with that username and password, then tap the
+2. Sign in on the Netlify site with that username and password. More parents
+   are added from the "הורים" tab (they choose their own password at first
+   sign-in). Then tap the
    fingerprint button at the top to turn on Face ID / fingerprint sign-in for
    that phone.
 3. Add babysitters and the girls in the app and give each a username and

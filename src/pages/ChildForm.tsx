@@ -19,10 +19,10 @@ import {
 } from '@/components/bits'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { useLoad } from '@/hooks/useLoad'
-import { contactKindLabels, weekdayLong } from '@/lib/labels'
+import { childNoun, contactKindLabels, genderLabels, newChildTitle, weekdayLong } from '@/lib/labels'
 import { uploadPhoto } from '@/lib/photos'
 import { supabase } from '@/lib/supabase'
-import type { Activity, Child, Contact, ContactKind, FrameworkType, SchoolSchedule } from '@/lib/types'
+import type { Activity, Child, Contact, ContactKind, FrameworkType, Gender, SchoolSchedule } from '@/lib/types'
 import { trimTime } from '@/lib/utils'
 
 type Draft = {
@@ -32,6 +32,7 @@ type Draft = {
   bedtime: string
   framework_type: FrameworkType
   framework_name: string
+  gender: Gender | null
   needs_child_seat: boolean
   notes: string
   photo_path: string | null
@@ -44,6 +45,7 @@ const EMPTY: Draft = {
   bedtime: '',
   framework_type: 'kindergarten',
   framework_name: '',
+  gender: null,
   needs_child_seat: false,
   notes: '',
   photo_path: null,
@@ -86,6 +88,7 @@ export function ChildForm() {
       allergies: c.allergies ?? '',
       bedtime: trimTime(c.bedtime),
       framework_type: c.framework_type ?? 'kindergarten',
+      gender: c.gender,
       framework_name: c.framework_name ?? '',
       needs_child_seat: c.needs_child_seat,
       notes: c.notes ?? '',
@@ -108,6 +111,7 @@ export function ChildForm() {
       allergies: draft!.allergies.trim() || null,
       bedtime: draft!.bedtime || null,
       framework_type: draft!.framework_type,
+      gender: draft!.gender,
       framework_name: draft!.framework_name.trim() || null,
       needs_child_seat: draft!.needs_child_seat,
       notes: draft!.notes.trim() || null,
@@ -133,7 +137,7 @@ export function ChildForm() {
   return (
     <div className="flex flex-col gap-3.5">
       <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
-        <PageHeader title={isNew ? 'ילדה חדשה' : draft.name || 'ילדה'} back="/children" />
+        <PageHeader title={isNew ? newChildTitle(draft.gender) : draft.name || childNoun(draft.gender)} back="/children" />
 
         <Section>
           {isNew ? (
@@ -141,6 +145,17 @@ export function ChildForm() {
           ) : (
             <AvatarPicker name={draft.name} path={draft.photo_path} tone="child" onPick={onPhoto} />
           )}
+          <Field label="מין">
+            <Segmented
+              label="מין"
+              value={draft.gender ?? ''}
+              onChange={(v) => set('gender', v || null)}
+              options={[
+                { value: 'boy', label: genderLabels.boy },
+                { value: 'girl', label: genderLabels.girl },
+              ]}
+            />
+          </Field>
           <Field label="שם" htmlFor="name">
             <Input id="name" required value={draft.name} onChange={(e) => set('name', e.target.value)} />
           </Field>

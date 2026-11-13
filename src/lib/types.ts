@@ -9,6 +9,12 @@ export interface AppUser {
   babysitter_id: string | null
   child_id: string | null
   photo_path: string | null
+  first_name: string | null
+  last_name: string | null
+  workplace: string | null
+  phone: string | null
+  /** Set when someone else chose the password; cleared by password_changed(). */
+  must_change_password: boolean
 }
 
 export type RateType = 'hourly' | 'per_shift'
@@ -49,6 +55,7 @@ export interface Availability {
 }
 
 export type FrameworkType = 'kindergarten' | 'school'
+export type Gender = 'boy' | 'girl'
 
 export interface Child {
   id: string
@@ -57,6 +64,7 @@ export interface Child {
   allergies: string | null
   bedtime: string | null
   framework_type: FrameworkType | null
+  gender: Gender | null
   framework_name: string | null
   needs_child_seat: boolean
   notes: string | null

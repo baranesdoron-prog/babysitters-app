@@ -16,6 +16,10 @@ import { Settings } from '@/pages/Settings'
 import { MyShifts } from '@/pages/MyShifts'
 import { MyAvailability } from '@/pages/MyAvailability'
 import { ChildToday } from '@/pages/ChildToday'
+import { ForcePasswordChange } from '@/pages/ForcePasswordChange'
+import { Parents } from '@/pages/Parents'
+import { ParentForm } from '@/pages/ParentForm'
+import { Profile } from '@/pages/Profile'
 
 export function App() {
   const state = useAppUser()
@@ -28,6 +32,12 @@ export function App() {
   const role = state.user?.role ?? null
   if (!role) {
     return <PendingRole />
+  }
+  const user = state.user!
+
+  // Signed in with a password someone else chose: pick their own first.
+  if (user.must_change_password) {
+    return <ForcePasswordChange name={user.first_name ?? user.full_name} onDone={state.reload} />
   }
 
   if (role === 'child') {
@@ -42,12 +52,13 @@ export function App() {
   }
 
   if (role === 'babysitter') {
-    const babysitterId = state.user!.babysitter_id!
+    const babysitterId = user.babysitter_id!
     return (
       <Routes>
         <Route element={<AppShell role="babysitter" />}>
           <Route path="/my-shifts" element={<MyShifts babysitterId={babysitterId} />} />
           <Route path="/my-availability" element={<MyAvailability babysitterId={babysitterId} />} />
+          <Route path="/profile" element={<Profile user={user} onChange={state.reload} />} />
           <Route path="*" element={<Navigate to="/my-shifts" replace />} />
         </Route>
       </Routes>
@@ -62,10 +73,13 @@ export function App() {
         <Route path="/shifts/:id" element={<ShiftDetail />} />
         <Route path="/babysitters" element={<Babysitters />} />
         <Route path="/babysitters/:id" element={<BabysitterForm />} />
+        <Route path="/parents" element={<Parents myId={user.id} />} />
+        <Route path="/parents/:id" element={<ParentForm myId={user.id} />} />
         <Route path="/children" element={<Children />} />
         <Route path="/children/:id" element={<ChildForm />} />
         <Route path="/payments" element={<Payments />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<Profile user={user} onChange={state.reload} />} />
         <Route path="*" element={<Navigate to="/calendar" replace />} />
       </Route>
     </Routes>

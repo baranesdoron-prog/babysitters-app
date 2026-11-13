@@ -63,8 +63,13 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
    `<username>@users.babysitters.invalid` (never mailed to; older child logins
    use `@kids.babysitters.invalid`, which the login screen still tries).
    Babysitters' and the girls' logins are created or reset only by a parent
-   through the `manage-login` edge function; parents' own logins are set once
-   in the SQL editor (DEPLOY.md, "First run"). After signing in, the fingerprint
+   through the `manage-login` edge function. A parent also adds other parents
+   there ("הורים" tab); the first parents were set once in the SQL editor
+   (DEPLOY.md, "First run"). A login whose password someone else chose has
+   `app_users.must_change_password` and must pick its own before anything else;
+   `password_changed()` clears it. "הפרופיל שלי": parents edit their own
+   `app_users` row; a babysitter edits her name/phone/photo only through
+   `update_my_babysitter_profile()`. After signing in, the fingerprint
    button in the header saves a passkey (`registerPasskey()`), and the login
    screen offers `signInWithPasskey()`. Public sign-ups are off.
 6. **Photos** live in the private Storage bucket `photos` at
@@ -158,7 +163,8 @@ else. Never use color alone to carry meaning: pair it with a word or icon.
 ### Components (reuse — don't reinvent)
 
 - **AppShell:** header + content + fixed bottom nav. Parent tabs: יומן,
-  בייביסיטריות, הבנות, תשלומים. Babysitter tabs: המשמרות שלי, הזמינות שלי.
+  בייביסיטריות, הורים, ילדים, תשלומים, הפרופיל שלי. Babysitter tabs: המשמרות
+  שלי, הזמינות שלי, הפרופיל שלי.
   Active tab = `text-primary font-semibold`. The child has one screen ("מי איתי
   היום") and no bottom nav.
 - **Avatar:** round photo; fallback = first letter on a tinted circle (teal for
