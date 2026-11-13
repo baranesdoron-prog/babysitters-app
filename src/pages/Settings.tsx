@@ -43,8 +43,11 @@ export function Settings() {
     setActionError(null)
     const { error: saveError } = await supabase
       .from('settings')
-      .update({ night_start: nightStart, default_wait_minutes: Number(wait), default_reminder_minutes: Number(reminder) })
-      .eq('id', true)
+      // One row per family; family_id defaults to the signed-in parent's family.
+      .upsert(
+        { night_start: nightStart, default_wait_minutes: Number(wait), default_reminder_minutes: Number(reminder) },
+        { onConflict: 'family_id' },
+      )
     setBusy(false)
     if (saveError) setActionError('לא הצלחנו לשמור. נסו שוב.')
     else setMessage('נשמר.')

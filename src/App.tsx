@@ -20,6 +20,7 @@ import { ForcePasswordChange } from '@/pages/ForcePasswordChange'
 import { Parents } from '@/pages/Parents'
 import { ParentForm } from '@/pages/ParentForm'
 import { Profile } from '@/pages/Profile'
+import { AdminFamilies, AdminNewFamily, AdminNewParent } from '@/pages/AdminFamilies'
 
 export function App() {
   const state = useAppUser()
@@ -67,7 +68,7 @@ export function App() {
 
   return (
     <Routes>
-      <Route element={<AppShell role="parent" />}>
+      <Route element={<AppShell role="parent" isAdmin={user.is_admin} />}>
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/shifts/new" element={<ShiftForm />} />
         <Route path="/shifts/:id" element={<ShiftDetail />} />
@@ -80,6 +81,13 @@ export function App() {
         <Route path="/payments" element={<Payments />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile user={user} onChange={state.reload} />} />
+        {user.is_admin && (
+          <>
+            <Route path="/admin" element={<AdminFamilies />} />
+            <Route path="/admin/families/new" element={<AdminNewFamily />} />
+            <Route path="/admin/families/:familyId/parents/new" element={<AdminNewParent />} />
+          </>
+        )}
         <Route path="*" element={<Navigate to="/calendar" replace />} />
       </Route>
     </Routes>

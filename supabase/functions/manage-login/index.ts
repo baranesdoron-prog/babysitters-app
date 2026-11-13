@@ -1,5 +1,7 @@
-// Creates or updates the username + password login of a babysitter, one of
-// the girls, or another parent. Only a parent may call it. Logins have no real email: the
+// Creates or updates the username + password login of a babysitter, a child,
+// or a parent. A parent manages logins in their own family only; the system
+// admin (app_users.is_admin) also creates families with their first parent
+// and adds parents to any family. No approval step either way. Logins have no real email: the
 // username is stored as <username>@users.babysitters.invalid (never mailed to).
 // Replaces create-child-login. Same pattern as barburg's admin-create-user.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -44,13 +46,16 @@ Deno.serve(async (req) => {
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey)
 
-  // The whole security boundary: only a parent gets past here.
+  // The whole security boundary: only a parent (or the system admin) gets past
+  // here, and everything below stays inside the caller's family unless they're the admin.
   const { data: caller } = await adminClient
     .from('app_users')
-    .select('role')
+    .select('role, family_id, is_admin')
     .eq('id', callerData.user.id)
     .single()
-  if (caller?.role !== 'parent') return jsonResponse({ error: 'Only parents can manage logins' }, 403)
+  const isAdmin = caller?.is_admin === true
+  if (caller?.role !== 'parent' && !isAdmin) return jsonResponse({ error: 'Only parents can manage logins' }, 403)
+  const sameFamily = (familyId: string | null) => isAdmin || (!!familyId && familyId === caller?.family_id)
 
   let body: {
     kind?: string
@@ -58,6 +63,10 @@ Deno.serve(async (req) => {
     username?: string
     password?: string
     parent?: { first_name?: string; last_name?: string; workplace?: string; phone?: string }
+    /** Admin only: add the parent to this family. */
+    family_id?: string
+    /** Admin only: create a new family with this name, and the parent as its first. */
+    new_family_name?: string
   }
   try {
     body = await req.json()
@@ -105,19 +114,41 @@ Deno.serve(async (req) => {
     return jsonResponse({ userId: created.user.id, username }, 200)
   }
 
-  // Another parent: `id` is their app_users id (reset), or absent (add a new parent).
+  // A parent: `id` is their app_users id (reset), or absent (add a new parent).
   // Either way they must choose their own password at the next sign-in.
   if (body.kind === 'parent') {
     if (id) {
-      const { data: target } = await adminClient.from('app_users').select('id, role').eq('id', id).maybeSingle()
-      if (target?.role !== 'parent') return jsonResponse({ error: 'Not found' }, 404)
+      const { data: target } = await adminClient.from('app_users').select('id, role, family_id').eq('id', id).maybeSingle()
+      if (target?.role !== 'parent' || !sameFamily(target.family_id)) return jsonResponse({ error: 'Not found' }, 404)
       return updateLogin(id, { must_change_password: true })
     }
     const first = body.parent?.first_name?.trim()
     const last = body.parent?.last_name?.trim()
+    const newFamilyName = body.new_family_name?.trim()
     if (!first || !last) return jsonResponse({ error: 'Missing or invalid fields' }, 400)
-    return createLogin(`${first} ${last}`, {
+    if ((newFamilyName || body.family_id) && !isAdmin) return jsonResponse({ error: 'Only the admin can add other families' }, 403)
+
+    // Which family: a new one (admin), one the admin picked, or the caller's own.
+    let familyId = body.family_id ?? caller?.family_id ?? null
+    let createdFamily: string | null = null
+    if (newFamilyName) {
+      const { data: family, error: familyError } = await adminClient
+        .from('families')
+        .insert({ name: newFamilyName })
+        .select('id')
+        .single()
+      if (familyError || !family) return jsonResponse({ error: familyError?.message ?? 'Failed to create family' }, 400)
+      await adminClient.from('settings').insert({ family_id: family.id })
+      familyId = createdFamily = family.id
+    } else if (familyId) {
+      const { data: family } = await adminClient.from('families').select('id').eq('id', familyId).maybeSingle()
+      if (!family) return jsonResponse({ error: 'Family not found' }, 404)
+    }
+    if (!familyId) return jsonResponse({ error: 'No family' }, 400)
+
+    const response = await createLogin(`${first} ${last}`, {
       role: 'parent',
+      family_id: familyId,
       first_name: first,
       last_name: last,
       full_name: `${first} ${last}`,
@@ -125,13 +156,17 @@ Deno.serve(async (req) => {
       phone: body.parent?.phone?.trim() || null,
       must_change_password: true,
     })
+    // Don't leave an empty family behind if the login couldn't be created.
+    if (!response.ok && createdFamily) await adminClient.from('families').delete().eq('id', createdFamily)
+    return response
   }
 
   const target = body.kind === 'child' || body.kind === 'babysitter' ? TARGETS[body.kind] : null
   if (!target || !id) return jsonResponse({ error: 'Missing or invalid fields' }, 400)
 
-  const { data: row } = await adminClient.from(target.table).select(`id, ${target.nameColumn}`).eq('id', id).single()
-  if (!row) return jsonResponse({ error: 'Not found' }, 404)
+  const { data: row } = await adminClient.from(target.table).select(`id, family_id, ${target.nameColumn}`).eq('id', id).single()
+  // A babysitter or a child of another family is "not found" for this caller.
+  if (!row || !sameFamily((row as { family_id: string }).family_id)) return jsonResponse({ error: 'Not found' }, 404)
   const fullName = (row as Record<string, string>)[target.nameColumn]
 
   const { data: existing } = await adminClient
@@ -142,5 +177,9 @@ Deno.serve(async (req) => {
 
   // Already has a login (username/password, or an older email one).
   if (existing) return updateLogin(existing.id)
-  return createLogin(fullName, { role: body.kind, [target.linkColumn]: id })
+  return createLogin(fullName, {
+    role: body.kind,
+    [target.linkColumn]: id,
+    family_id: (row as { family_id: string }).family_id,
+  })
 })

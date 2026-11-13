@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import type { AppUser } from '@/lib/types'
 
 export const APP_USER_COLUMNS =
-  'id, email, full_name, role, is_admin, babysitter_id, child_id, photo_path, first_name, last_name, workplace, phone, must_change_password'
+  'id, email, full_name, role, is_admin, babysitter_id, child_id, photo_path, family_id, first_name, last_name, workplace, phone, must_change_password'
 
 type State =
   | { status: 'loading' }

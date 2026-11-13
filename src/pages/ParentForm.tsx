@@ -44,9 +44,94 @@ export function ParentDetailsFields({ value, onChange }: { value: Details; onCha
 
 export function ParentForm({ myId }: { myId: string }) {
   const { id } = useParams<{ id: string }>()
-  const isNew = !id || id === 'new'
+  if (!id || id === 'new') return <NewParentForm title="הוספת הורה" back="/parents" doneTo="/parents" />
+  if (id === myId) return <Navigate to="/profile" replace />
+  return <EditParent id={id} />
+}
+
+/**
+ * Add a parent: details, username and an initial password they'll replace at
+ * first sign-in. A parent adds to their own family; the admin passes
+ * `familyId` (an existing family) or `newFamily` (asks for its name and
+ * creates it with this parent as its first).
+ */
+export function NewParentForm({ title, back, doneTo, familyId, newFamily = false }: {
+  title: string
+  back: string
+  doneTo: string
+  familyId?: string
+  newFamily?: boolean
+}) {
   const navigate = useNavigate()
-  const [details, setDetails] = useState<Details | null>(isNew ? EMPTY : null)
+  const [familyName, setFamilyName] = useState('')
+  const [details, setDetails] = useState<Details>(EMPTY)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const name = normalizeUsername(username)
+  const valid = details.first_name.trim() && details.last_name.trim() && USERNAME_RE.test(name)
+    && password.length >= MIN_PASSWORD_LENGTH && (!newFamily || familyName.trim())
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setErr(null)
+    const { first_name, last_name, workplace, phone } = detailsRow(details)
+    const { error: fnError } = await supabase.functions.invoke('manage-login', {
+      body: {
+        kind: 'parent',
+        username: name,
+        password,
+        parent: { first_name, last_name, workplace, phone },
+        ...(familyId && { family_id: familyId }),
+        ...(newFamily && { new_family_name: familyName.trim() }),
+      },
+    })
+    setBusy(false)
+    if (fnError) {
+      setErr(functionError(fnError))
+      return
+    }
+    navigate(doneTo, { replace: true, state: { created: name } })
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
+      <PageHeader title={title} back={back} />
+      {newFamily && (
+        <Section title="המשפחה">
+          <Field label="שם המשפחה" htmlFor="familyName" hint="למשל: משפחת לוי">
+            <Input id="familyName" required value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
+          </Field>
+        </Section>
+      )}
+      <Section title={newFamily ? 'ההורה הראשון' : 'פרטים'}>
+        <ParentDetailsFields value={details} onChange={setDetails} />
+      </Section>
+      <Section title="כניסה לאפליקציה">
+        <Field label="שם משתמש" htmlFor="username" hint="אותיות באנגלית קטנות, מספרים, נקודה או מקף. לפחות 3.">
+          <Input id="username" dir="ltr" required autoCapitalize="none" autoCorrect="off" value={username} onChange={(e) => setUsername(e.target.value)} />
+        </Field>
+        <Field label="סיסמה ראשונית" htmlFor="password" hint={`לפחות ${MIN_PASSWORD_LENGTH} תווים. בכניסה הראשונה יתבקשו לבחור סיסמה משלהם.`}>
+          <Input id="password" dir="ltr" type="text" required autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        {newFamily && (
+          <p className="text-muted-foreground text-sm">אחרי שייכנס, ההורה הזה יוכל להוסיף את ההורה השני במסך "הורים", בלי אישור.</p>
+        )}
+      </Section>
+      {err && <ErrorText>{err}</ErrorText>}
+      <PrimaryButton type="submit" disabled={!valid || busy}>
+        {busy ? 'שומרים…' : newFamily ? 'יצירת משפחה והזמנת ההורה' : 'הוספת הורה'}
+      </PrimaryButton>
+    </form>
+  )
+}
+
+/** Another parent of the family: their details, or a new temporary password. */
+function EditParent({ id }: { id: string }) {
+  const [details, setDetails] = useState<Details | null>(null)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -54,8 +139,7 @@ export function ParentForm({ myId }: { myId: string }) {
   const [notice, setNotice] = useState<string | null>(null)
 
   const { data: parent, error, reload } = useLoad(async () => {
-    if (isNew) return null
-    const res = await supabase.from('app_users').select(APP_USER_COLUMNS).eq('id', id!).eq('role', 'parent').single()
+    const res = await supabase.from('app_users').select(APP_USER_COLUMNS).eq('id', id).eq('role', 'parent').single()
     if (res.error) throw new Error('לא מצאנו את ההורה.')
     return res.data as AppUser
   }, [id])
@@ -71,35 +155,18 @@ export function ParentForm({ myId }: { myId: string }) {
     setUsername(usernameOf(parent.email) ?? '')
   }, [parent])
 
-  if (id === myId) return <Navigate to="/profile" replace />
   if (error) return <ErrorText>{error}</ErrorText>
-  if (!details) return <Loading />
+  if (!details || !parent) return <Loading />
 
   const name = normalizeUsername(username)
   const passwordOk = password.length >= MIN_PASSWORD_LENGTH
-
-  async function onCreate(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setErr(null)
-    const { first_name, last_name, workplace, phone } = detailsRow(details!)
-    const { error: fnError } = await supabase.functions.invoke('manage-login', {
-      body: { kind: 'parent', username: name, password, parent: { first_name, last_name, workplace, phone } },
-    })
-    setBusy(false)
-    if (fnError) {
-      setErr(functionError(fnError))
-      return
-    }
-    navigate('/parents', { replace: true, state: { created: name } })
-  }
 
   async function onSaveDetails(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
     setErr(null)
     setNotice(null)
-    const { error: saveError } = await supabase.from('app_users').update(detailsRow(details!)).eq('id', id!)
+    const { error: saveError } = await supabase.from('app_users').update(detailsRow(details!)).eq('id', id)
     setBusy(false)
     if (saveError) setErr('לא הצלחנו לשמור. נסו שוב.')
     else setNotice('הפרטים נשמרו.')
@@ -123,31 +190,9 @@ export function ParentForm({ myId }: { myId: string }) {
     reload()
   }
 
-  if (isNew) {
-    const valid = details.first_name.trim() && details.last_name.trim() && USERNAME_RE.test(name) && passwordOk
-    return (
-      <form onSubmit={onCreate} className="flex flex-col gap-3.5">
-        <PageHeader title="הוספת הורה" back="/parents" />
-        <Section title="פרטים">
-          <ParentDetailsFields value={details} onChange={setDetails} />
-        </Section>
-        <Section title="כניסה לאפליקציה">
-          <Field label="שם משתמש" htmlFor="username" hint="אותיות באנגלית קטנות, מספרים, נקודה או מקף. לפחות 3.">
-            <Input id="username" dir="ltr" required autoCapitalize="none" autoCorrect="off" value={username} onChange={(e) => setUsername(e.target.value)} />
-          </Field>
-          <Field label="סיסמה ראשונית" htmlFor="password" hint={`לפחות ${MIN_PASSWORD_LENGTH} תווים. בכניסה הראשונה יתבקשו לבחור סיסמה משלהם.`}>
-            <Input id="password" dir="ltr" type="text" required autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </Field>
-        </Section>
-        {err && <ErrorText>{err}</ErrorText>}
-        <PrimaryButton type="submit" disabled={!valid || busy}>{busy ? 'מוסיפים…' : 'הוספת הורה'}</PrimaryButton>
-      </form>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-3.5">
-      <PageHeader title={displayName(parent!)} back="/parents" />
+      <PageHeader title={displayName(parent)} back="/parents" />
       <form onSubmit={onSaveDetails} className="flex flex-col gap-3.5">
         <Section title="פרטים">
           <ParentDetailsFields value={details} onChange={setDetails} />

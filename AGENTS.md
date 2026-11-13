@@ -49,6 +49,17 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
 1. **Permissions live in Postgres (RLS), never only in React.** Hiding a button is
    UX, not security. Every new table gets RLS enabled and a parent policy; add a
    babysitter policy only if she must see it.
+1a. **Several families share the system.** Every family table has `family_id`
+   (default `my_family_id()`), and the parent policy is
+   `is_parent() and family_id = my_family_id()` — never just `is_parent()`.
+   A new table follows the same pattern; a function that reads across rows
+   filters by family. Parents can't change `app_users` role / family / admin /
+   links / username (trigger `protect_app_user_system_fields`); only
+   `manage-login` (service role) sets them. The system admin
+   (`app_users.is_admin`, "ניהול משפחות") sees families and their parents, never
+   a family's kids, babysitters, shifts or payments. No sign-up or join requests:
+   the admin creates a family with its first parent, and that parent adds the
+   other one from "הורים", no approval.
 2. **Babysitters write through functions only:** `respond_to_request()`,
    `set_item_done()`, availability rows. Parents record payments with
    `record_payment()`. Don't add direct UPDATE policies for babysitters.
