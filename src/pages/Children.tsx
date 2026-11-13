@@ -12,16 +12,16 @@ import { ageOf, trimTime } from '@/lib/utils'
 export function Children() {
   const { data: rows, error } = useLoad(async () => {
     const res = await supabase.from('children').select('*').order('birth_date')
-    if (res.error) throw new Error('לא הצלחנו לטעון את הבנות.')
+    if (res.error) throw new Error('לא הצלחנו לטעון את רשימת הילדים.')
     return res.data as Child[]
   }, [])
 
   return (
     <div className="flex flex-col gap-3.5">
-      <PageHeader title="הבנות" />
+      <PageHeader title="ילדים" />
       {error && <ErrorText>{error}</ErrorText>}
       {!rows && !error && <Loading />}
-      {rows?.length === 0 && <Empty>עוד לא הוספתם את הבנות.</Empty>}
+      {rows?.length === 0 && <Empty>עוד לא הוספתם ילדים.</Empty>}
       {rows?.map((c) => {
         const age = ageOf(c.birth_date)
         return (
