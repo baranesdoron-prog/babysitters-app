@@ -108,11 +108,14 @@ export function Payments() {
 
   async function payWithApp(method: 'bit' | 'paybox') {
     if (!sitter) return
+    // Only the amount, as a plain number: in the app she's picked by name from
+    // the contacts, and the amount is what gets pasted. (Neither app takes a
+    // link with the recipient and amount filled in.)
     try {
-      await navigator.clipboard.writeText(`${sitter.phone ?? ''}\n${total}`)
-      setNotice(`הטלפון של ${sitter.full_name} והסכום ${formatMoney(total)} הועתקו.`)
+      await navigator.clipboard.writeText(String(total))
+      setNotice(`הסכום ${formatMoney(total)} הועתק. בחרו את ${sitter.full_name} באפליקציה והדביקו אותו.`)
     } catch {
-      setNotice(`לא הצלחנו להעתיק. הטלפון: ${sitter.phone ?? '—'}, הסכום: ${formatMoney(total)}.`)
+      setNotice(`לא הצלחנו להעתיק. הסכום לתשלום ל${sitter.full_name}: ${formatMoney(total)}.`)
     }
     leftFor.current = { sitterId: sitter.id, method }
     // A new tab keeps this page (and the ref above) alive while the app is open.
