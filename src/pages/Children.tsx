@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react'
 import { Avatar } from '@/components/Avatar'
 import { Empty, ErrorText, Fab, Loading, PageHeader, Tag } from '@/components/bits'
 import { useLoad } from '@/hooks/useLoad'
-import { frameworkLabels } from '@/lib/labels'
+import { ageLabel, frameworkLabels } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
 import type { Child } from '@/lib/types'
 import { ageOf, trimTime } from '@/lib/utils'
@@ -31,7 +31,7 @@ export function Children() {
               <div className="min-w-0 flex-1">
                 <p className="text-[17px] font-bold">{c.name}</p>
                 <p className="text-muted-foreground text-sm">
-                  {[age != null && `בת ${age}`, c.framework_type && `${frameworkLabels[c.framework_type]}${c.framework_name ? ` ${c.framework_name}` : ''}`]
+                  {[age != null && ageLabel(c.gender, age), c.framework_type && `${frameworkLabels[c.framework_type]}${c.framework_name ? ` ${c.framework_name}` : ''}`]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
@@ -46,7 +46,7 @@ export function Children() {
           </Link>
         )
       })}
-      <Fab to="/children/new" label="להוסיף ילדה" />
+      <Fab to="/children/new" label="הוספת ילד/ה" />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import type {
   ContactKind,
   FrameworkType,
+  Gender,
   ItemKind,
   PaymentMethod,
   PickupBy,
@@ -64,6 +65,26 @@ export const paymentMethodLabels: Record<PaymentMethod, string> = {
 export const frameworkLabels: Record<FrameworkType, string> = {
   kindergarten: 'גן',
   school: 'בית ספר',
+}
+
+export const genderLabels: Record<Gender, string> = {
+  boy: 'בן',
+  girl: 'בת',
+}
+
+/** "ילד" / "ילדה", or "ילד/ה" before the gender is set. */
+export function childNoun(gender: Gender | null) {
+  return gender === 'boy' ? 'ילד' : gender === 'girl' ? 'ילדה' : 'ילד/ה'
+}
+
+/** "ילד חדש" / "ילדה חדשה" / "ילד/ה חדש/ה" — the add-a-child title. */
+export function newChildTitle(gender: Gender | null) {
+  return gender === 'boy' ? 'ילד חדש' : gender === 'girl' ? 'ילדה חדשה' : 'ילד/ה חדש/ה'
+}
+
+/** "בן 5" / "בת 5" / "גיל 5". */
+export function ageLabel(gender: Gender | null, age: number) {
+  return gender ? `${genderLabels[gender]} ${age}` : `גיל ${age}`
 }
 
 export const contactKindLabels: Record<ContactKind, string> = {

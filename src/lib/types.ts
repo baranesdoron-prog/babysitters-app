@@ -55,6 +55,7 @@ export interface Availability {
 }
 
 export type FrameworkType = 'kindergarten' | 'school'
+export type Gender = 'boy' | 'girl'
 
 export interface Child {
   id: string
@@ -63,6 +64,7 @@ export interface Child {
   allergies: string | null
   bedtime: string | null
   framework_type: FrameworkType | null
+  gender: Gender | null
   framework_name: string | null
   needs_child_seat: boolean
   notes: string | null
