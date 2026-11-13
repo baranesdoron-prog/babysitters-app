@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
-import { CalendarDays, Users, UsersRound, Baby, Wallet, ClipboardList, Clock, CircleUserRound, Fingerprint, LogOut, type LucideIcon } from 'lucide-react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { CalendarDays, Users, UsersRound, Baby, Wallet, ClipboardList, Clock, CircleUserRound, Fingerprint, LogOut, ShieldCheck, type LucideIcon } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/lib/types'
@@ -23,7 +23,7 @@ const NAV: Record<AppRole, { label: string; icon: LucideIcon; to: string }[]> = 
   child: [],
 }
 
-export function AppShell({ role }: { role: AppRole }) {
+export function AppShell({ role, isAdmin = false }: { role: AppRole; isAdmin?: boolean }) {
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [passkeyNotice, setPasskeyNotice] = useState<string | null>(null)
   const navItems = NAV[role]
@@ -51,6 +51,16 @@ export function AppShell({ role }: { role: AppRole }) {
       <header className="bg-card flex items-center justify-between border-b px-4 py-2">
         <p className="font-semibold">הבייביסיטריות שלנו</p>
         <div className="flex items-center gap-1">
+          {isAdmin && (
+            <Link
+              to="/admin"
+              aria-label="ניהול משפחות"
+              title="ניהול משפחות"
+              className="text-muted-foreground flex size-11 items-center justify-center rounded-lg"
+            >
+              <ShieldCheck className="size-5" aria-hidden="true" />
+            </Link>
+          )}
           <button
             type="button"
             aria-label="הפעלת כניסה עם טביעת אצבע"

@@ -9,12 +9,19 @@ export interface AppUser {
   babysitter_id: string | null
   child_id: string | null
   photo_path: string | null
+  family_id: string | null
   first_name: string | null
   last_name: string | null
   workplace: string | null
   phone: string | null
   /** Set when someone else chose the password; cleared by password_changed(). */
   must_change_password: boolean
+}
+
+export interface Family {
+  id: string
+  name: string
+  created_at: string
 }
 
 export type RateType = 'hourly' | 'per_shift'
