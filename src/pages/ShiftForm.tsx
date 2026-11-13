@@ -56,6 +56,9 @@ export function ShiftForm() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<DraftItem[]>([])
   const [order, setOrder] = useState<string[] | null>(null) // candidate ids in request order
+  // 'direct': already arranged with her (e.g. by phone) — save confirmed, send nothing.
+  const [mode, setMode] = useState<'request' | 'direct'>('request')
+  const [bookedId, setBookedId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -92,27 +95,30 @@ export function ShiftForm() {
   const hasNight = split.nightHours > 0
   const overnight = isOvernight(startAt, endAt, split)
 
+  // Who can do this shift at all (active; does nights when it has a night part),
+  // and of those, who marked herself available for these hours.
+  const eligible = useMemo(
+    () => (data ? data.sitters.filter((b) => !hasNight || b.night_ok) : []),
+    [data, hasNight],
+  )
   const candidates = useMemo(() => {
     if (!data) return []
-    return data.sitters.filter(
-      (b) =>
-        (!hasNight || b.night_ok) &&
-        isAvailable(data.availability.filter((a) => a.babysitter_id === b.id), startAt, endAt),
-    )
-  }, [data, hasNight, startAt, endAt])
+    return eligible.filter((b) => isAvailable(data.availability.filter((a) => a.babysitter_id === b.id), startAt, endAt))
+  }, [data, eligible, startAt, endAt])
+  const isMarked = (id: string) => candidates.some((c) => c.id === id)
 
-  // Default order: everyone available, alphabetically. The parent reorders / removes.
-  const chosen = (order ?? candidates.map((c) => c.id)).filter((id) => candidates.some((c) => c.id === id))
+  // Default order: everyone available, alphabetically. The parent reorders / removes,
+  // and may add one who didn't mark her availability.
+  const chosen = (order ?? candidates.map((c) => c.id)).filter((id) => eligible.some((b) => b.id === id))
   const notChosen = candidates.filter((c) => !chosen.includes(c.id))
+  const unmarked = eligible.filter((b) => !isMarked(b.id) && !chosen.includes(b.id))
   const sitterById = new Map(data?.sitters.map((b) => [b.id, b]))
+  const booked = mode === 'direct' && bookedId && eligible.some((b) => b.id === bookedId) ? sitterById.get(bookedId)! : null
+  const involved = mode === 'direct' ? (booked ? [booked] : []) : chosen.map((id) => sitterById.get(id)!)
 
-  const seatChild = data?.children.find((c) => c.needs_child_seat)
-  const noSeat = pickupBy === 'babysitter' && seatChild
-    ? chosen.map((id) => sitterById.get(id)!).filter((b) => !b.has_child_seat)
-    : []
-  const noPickup = pickupBy === 'babysitter'
-    ? chosen.map((id) => sitterById.get(id)!).filter((b) => !b.can_pickup)
-    : []
+  const seatChildren = data?.children.filter((c) => c.needs_child_seat) ?? []
+  const noSeat = pickupBy === 'babysitter' && seatChildren.length ? involved.filter((b) => !b.has_child_seat) : []
+  const noPickup = pickupBy === 'babysitter' ? involved.filter((b) => !b.can_pickup) : []
 
   function move(id: string, dir: -1 | 1) {
     const list = [...chosen]
@@ -139,7 +145,9 @@ export function ShiftForm() {
         merged: hasNight && split.dayHours > 0 ? merged : false,
         pickup_by: pickupBy,
         notes: notes.trim() || null,
-        status: chosen.length > 0 ? 'requested' : 'draft',
+        ...(booked
+          ? { status: 'confirmed', babysitter_id: booked.id }
+          : { status: chosen.length > 0 ? 'requested' : 'draft' }),
       })
       .select('id')
       .single()
@@ -150,7 +158,8 @@ export function ShiftForm() {
     }
 
     // Requests go out one at a time: the first is sent now, the rest wait in line.
-    const requests = chosen.map((babysitter_id, i) => ({
+    // Booked directly: no requests at all.
+    const requests = booked ? [] : chosen.map((babysitter_id, i) => ({
       shift_id: shift.id,
       babysitter_id,
       position: i + 1,
@@ -164,6 +173,10 @@ export function ShiftForm() {
       ...items.filter((i) => i.description.trim()),
       ...(overnight
         ? data.templates.map((t) => ({ kind: t.kind, description: t.description, child_id: t.child_id }))
+        : []),
+      // Booked directly, so respond_to_request() won't add the car seat item: add it here.
+      ...(booked && noSeat.length
+        ? seatChildren.map((c) => ({ kind: 'leave' as const, description: CAR_SEAT_ITEM, child_id: c.id }))
         : []),
     ]
 
@@ -263,9 +276,9 @@ export function ShiftForm() {
         {pickupBy === 'babysitter' && (
           <p className="text-muted-foreground text-sm">הבייביסיטר לא מסיעה לחוגים.</p>
         )}
-        {noSeat.length > 0 && seatChild && (
+        {noSeat.length > 0 && (
           <WarningBox>
-            ל{noSeat.map((b) => b.full_name).join(' ול')} אין כיסא בטיחות. אם היא תאשר, נוסיף למשמרת "{CAR_SEAT_ITEM}".
+            ל{noSeat.map((b) => b.full_name).join(' ול')} אין כיסא בטיחות. {booked ? 'נוסיף' : 'אם היא תאשר, נוסיף'} למשמרת "{CAR_SEAT_ITEM}".
           </WarningBox>
         )}
         {noPickup.length > 0 && (
@@ -275,12 +288,47 @@ export function ShiftForm() {
         )}
       </Section>}
 
-      <Section title="למי לשלוח, לפי הסדר">
+      <Section title={mode === 'direct' ? 'עם מי סגרתם' : 'למי לשלוח, לפי הסדר'}>
+        <Segmented
+          label="איך קובעים"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'request', label: 'לשלוח בקשה' },
+            { value: 'direct', label: 'כבר סגרנו איתה' },
+          ]}
+        />
+        {eligible.length === 0 && (
+          <Empty>{hasNight ? 'אין בייביסיטריות פעילות שעושות לילות.' : 'אין בייביסיטריות פעילות.'}</Empty>
+        )}
+        {mode === 'direct' ? (
+          <>
+            <p className="text-muted-foreground text-sm">המשמרת תישמר כמאושרת איתה, בלי לשלוח בקשה.</p>
+            <div role="radiogroup" aria-label="עם מי סגרתם" className="flex flex-col">
+              {eligible.map((b) => (
+                <label key={b.id} className="border-muted flex min-h-14 items-center gap-3 border-b py-2 last:border-b-0">
+                  <input type="radio" name="booked" className="accent-primary size-5 shrink-0" checked={bookedId === b.id} onChange={() => setBookedId(b.id)} />
+                  <Avatar name={b.full_name} path={b.photo_path} size={40} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">{b.full_name}</span>
+                    <span className="text-muted-foreground block truncate text-sm">
+                      {hasNight ? `לילה ${formatRate(b.night_rate_type, b.night_rate)}` : formatRate(b.day_rate_type, b.day_rate)}
+                      {!isMarked(b.id) && ' · לא סימנה זמינות'}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </>
+        ) : (
+        <>
         <p className="text-muted-foreground text-sm">
-          רק מי שפנויה בשעות האלה{hasNight ? ' ועושה לילות' : ''}. שולחים לאחת בכל פעם; אם היא לא עונה תוך{' '}
+          לפי מי שסימנה שהיא פנויה בשעות האלה{hasNight ? ' ועושה לילות' : ''}. שולחים לאחת בכל פעם; אם היא לא עונה תוך{' '}
           {data.settings.default_wait_minutes} דקות, אפשר לעבור לבאה.
         </p>
-        {candidates.length === 0 && <Empty>אף אחת לא סימנה שהיא פנויה בשעות האלה.</Empty>}
+        {eligible.length > 0 && candidates.length === 0 && chosen.length === 0 && (
+          <Empty>אף אחת לא סימנה שהיא פנויה בשעות האלה. אפשר להוסיף מהרשימה למטה.</Empty>
+        )}
         <ol className="flex flex-col">
           {chosen.map((id, i) => {
             const b = sitterById.get(id)!
@@ -293,6 +341,7 @@ export function ShiftForm() {
                   <p className="text-muted-foreground truncate text-sm">
                     {formatRate(b.day_rate_type, b.day_rate)}
                     {hasNight && ` · לילה ${formatRate(b.night_rate_type, b.night_rate)}`}
+                    {!isMarked(id) && ' · לא סימנה זמינות'}
                   </p>
                 </div>
                 <button type="button" aria-label={`להקדים את ${b.full_name}`} disabled={i === 0} onClick={() => move(id, -1)} className="flex size-11 items-center justify-center rounded-lg disabled:opacity-30">
@@ -316,6 +365,20 @@ export function ShiftForm() {
               </TextButton>
             ))}
           </div>
+        )}
+        {unmarked.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <p className="text-muted-foreground text-sm">לא סימנו שהן פנויות בשעות האלה (אפשר בכל זאת לשאול):</p>
+            <div className="flex flex-wrap gap-2">
+              {unmarked.map((b) => (
+                <TextButton key={b.id} onClick={() => setOrder([...chosen, b.id])}>
+                  + {b.full_name}
+                </TextButton>
+              ))}
+            </div>
+          </div>
+        )}
+        </>
         )}
       </Section>
 
@@ -366,10 +429,14 @@ export function ShiftForm() {
       </Section>
 
       {saveError && <ErrorText>{saveError}</ErrorText>}
-      <PrimaryButton type="submit" disabled={busy || endAt <= startAt || !dateOk}>
-        {busy ? 'שומרים…' : chosen.length > 0 ? `לשלוח בקשה ל${sitterById.get(chosen[0])!.full_name}` : 'לשמור בלי לשלוח'}
+      <PrimaryButton type="submit" disabled={busy || endAt <= startAt || !dateOk || (mode === 'direct' && !booked)}>
+        {busy
+          ? 'שומרים…'
+          : mode === 'direct'
+            ? booked ? `לשמור משמרת עם ${booked.full_name}` : 'בחרו עם מי סגרתם'
+            : chosen.length > 0 ? `לשלוח בקשה ל${sitterById.get(chosen[0])!.full_name}` : 'לשמור בלי לשלוח'}
       </PrimaryButton>
-      <p className={cn('text-muted-foreground -mt-2 text-center text-sm', chosen.length < 2 && 'hidden')}>
+      <p className={cn('text-muted-foreground -mt-2 text-center text-sm', (mode === 'direct' || chosen.length < 2) && 'hidden')}>
         אם היא לא יכולה, נעבור ל{sitterById.get(chosen[1] ?? '')?.full_name}.
       </p>
     </form>
