@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowUp, Moon, Sun, Trash2 } from 'lucide-react'
 
 import { Avatar } from '@/components/Avatar'
+import { DateInput } from '@/components/DateInput'
 import { Segmented } from '@/components/Segmented'
 import {
   CheckRow,
@@ -28,14 +29,30 @@ import { addDays, cn, formatDayHeader, formatHours, todayKey, zonedToIso } from 
 
 type DraftItem = { kind: ItemKind; description: string; child_id: string | null }
 
+type ShiftKind = 'day' | 'night'
+
+const DEFAULT_TIMES: Record<ShiftKind, { start: string; end: string }> = {
+  day: { start: '16:00', end: '20:00' },
+  night: { start: '20:00', end: '23:00' },
+}
+
+/** "21:30" → "00:30": the night shift's end defaults to three hours after its start. */
+function threeHoursLater(time: string) {
+  const [h, m] = time.split(':').map(Number)
+  return `${String((h + 3) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 export function ShiftForm() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const [date, setDate] = useState(params.get('date') ?? todayKey())
-  const [startTime, setStartTime] = useState('16:00')
-  const [endTime, setEndTime] = useState('20:00')
+  const [kind, setKind] = useState<ShiftKind>('day')
+  const [startTime, setStartTime] = useState(DEFAULT_TIMES.day.start)
+  const [endTime, setEndTime] = useState(DEFAULT_TIMES.day.end)
   const [merged, setMerged] = useState(false)
-  const [pickupBy, setPickupBy] = useState<PickupBy>('parent')
+  const [pickupChoice, setPickupBy] = useState<PickupBy>('parent')
+  // No kindergarten pickup on a night shift: the parents are home until it starts.
+  const pickupBy: PickupBy = kind === 'night' ? 'parent' : pickupChoice
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<DraftItem[]>([])
   const [order, setOrder] = useState<string[] | null>(null) // candidate ids in request order
@@ -63,8 +80,13 @@ export function ShiftForm() {
   }, [])
 
   // An end at or before the start means the shift runs past midnight.
-  const endDate = endTime <= startTime ? addDays(date, 1) : date
-  const startAt = zonedToIso(date, startTime)
+  // The typed date is '' until it's complete and valid; calculate with the last good one meanwhile.
+  const dateOk = date !== ''
+  const [lastDate, setLastDate] = useState(date)
+  if (dateOk && date !== lastDate) setLastDate(date)
+  const day = dateOk ? date : lastDate
+  const endDate = endTime <= startTime ? addDays(day, 1) : day
+  const startAt = zonedToIso(day, startTime)
   const endAt = zonedToIso(endDate, endTime)
   const split = data ? splitShift(startAt, endAt, data.settings.night_start) : { dayHours: 0, nightHours: 0 }
   const hasNight = split.nightHours > 0
@@ -166,18 +188,40 @@ export function ShiftForm() {
       <PageHeader title="משמרת חדשה" back="/calendar" />
 
       <Section title="מתי">
+        <Segmented
+          label="סוג משמרת"
+          value={kind}
+          onChange={(k) => {
+            setKind(k)
+            setStartTime(DEFAULT_TIMES[k].start)
+            setEndTime(DEFAULT_TIMES[k].end)
+          }}
+          options={[
+            { value: 'day', label: 'משמרת יום' },
+            { value: 'night', label: 'משמרת לילה' },
+          ]}
+        />
         <Field label="תאריך" htmlFor="date">
-          <Input id="date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
+          <DateInput id="date" value={date} onChange={setDate} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="משעה" htmlFor="start">
-            <Input id="start" type="time" required value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            <Input
+              id="start"
+              type="time"
+              required
+              value={startTime}
+              onChange={(e) => {
+                setStartTime(e.target.value)
+                if (kind === 'night' && e.target.value) setEndTime(threeHoursLater(e.target.value))
+              }}
+            />
           </Field>
           <Field label="עד שעה" htmlFor="end">
             <Input id="end" type="time" required value={endTime} onChange={(e) => setEndTime(e.target.value)} />
           </Field>
         </div>
-        {endDate !== date && (
+        {endDate !== day && (
           <p className="text-muted-foreground text-sm">מסתיימת למחרת, {formatDayHeader(endDate)}.</p>
         )}
 
@@ -206,7 +250,7 @@ export function ShiftForm() {
         )}
       </Section>
 
-      <Section title="מי אוספת מהגן">
+      {kind === 'day' && <Section title="מי אוספת מהגן">
         <Segmented
           label="מי אוספת"
           value={pickupBy}
@@ -229,7 +273,7 @@ export function ShiftForm() {
             {noPickup.map((b) => b.full_name).join(', ')} לא מסומנת כמי שיכולה לאסוף.
           </WarningBox>
         )}
-      </Section>
+      </Section>}
 
       <Section title="למי לשלוח, לפי הסדר">
         <p className="text-muted-foreground text-sm">
@@ -322,7 +366,7 @@ export function ShiftForm() {
       </Section>
 
       {saveError && <ErrorText>{saveError}</ErrorText>}
-      <PrimaryButton type="submit" disabled={busy || endAt <= startAt}>
+      <PrimaryButton type="submit" disabled={busy || endAt <= startAt || !dateOk}>
         {busy ? 'שומרים…' : chosen.length > 0 ? `לשלוח בקשה ל${sitterById.get(chosen[0])!.full_name}` : 'לשמור בלי לשלוח'}
       </PrimaryButton>
       <p className={cn('text-muted-foreground -mt-2 text-center text-sm', chosen.length < 2 && 'hidden')}>
