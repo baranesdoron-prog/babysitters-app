@@ -10,6 +10,7 @@ import { uploadPhoto } from '@/lib/photos'
 import { supabase } from '@/lib/supabase'
 import type { AppUser, Babysitter } from '@/lib/types'
 import { detailsRow } from '@/lib/people'
+import { isValidBirthYear, sitterAgeLabel } from '@/lib/sitters'
 import { ParentDetailsFields } from './ParentForm'
 import { RatingBadge, Stars } from '@/components/Rating'
 import { fetchBabysitterRatings, fetchFamilyRatings, type ShiftRating } from '@/lib/ratings'
@@ -86,6 +87,7 @@ function ParentDetails({ user, onChange }: { user: AppUser; onChange: () => void
 function BabysitterDetails({ user }: { user: AppUser }) {
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
+  const [birthYear, setBirthYear] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -101,6 +103,7 @@ function BabysitterDetails({ user }: { user: AppUser }) {
     if (!me) return
     setFullName(me.full_name)
     setPhone(me.phone ?? '')
+    setBirthYear(me.birth_year?.toString() ?? '')
     setPhoto(me.photo_path)
   }, [me])
 
@@ -112,6 +115,7 @@ function BabysitterDetails({ user }: { user: AppUser }) {
       p_full_name: fullName,
       p_phone: phone,
       p_photo_path: photoPath,
+      p_birth_year: birthYear ? Number(birthYear) : null,
     })
     return rpcError
   }
@@ -141,12 +145,20 @@ function BabysitterDetails({ user }: { user: AppUser }) {
         <Field label="שם" htmlFor="fullName">
           <Input id="fullName" required autoComplete="name" value={fullName} onChange={(e) => { setFullName(e.target.value); setSaved(false) }} />
         </Field>
-        <Field label="טלפון נייד" htmlFor="phone">
-          <Input id="phone" type="tel" dir="ltr" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setSaved(false) }} />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="טלפון נייד" htmlFor="phone">
+            <Input id="phone" type="tel" dir="ltr" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setSaved(false) }} />
+          </Field>
+          <Field label="שנת לידה" htmlFor="birthYear" hint={birthYear && isValidBirthYear(birthYear) ? sitterAgeLabel(Number(birthYear)) ?? undefined : undefined}>
+            <Input id="birthYear" dir="ltr" inputMode="numeric" maxLength={4} placeholder="2006" value={birthYear} onChange={(e) => { setBirthYear(e.target.value.replace(/\D/g, '')); setSaved(false) }} />
+          </Field>
+        </div>
+        {birthYear.length === 4 && !isValidBirthYear(birthYear) && (
+          <p className="text-destructive text-sm">שנת לידה לא סבירה (גיל 14–80).</p>
+        )}
         {err && <ErrorText>{err}</ErrorText>}
         {saved && <p className="text-success-foreground text-[15px]" role="status">נשמר.</p>}
-        <SecondaryButton type="submit" disabled={busy || !fullName.trim()}>{busy ? 'שומרים…' : 'שמירת הפרטים'}</SecondaryButton>
+        <SecondaryButton type="submit" disabled={busy || !fullName.trim() || (birthYear !== '' && !isValidBirthYear(birthYear))}>{busy ? 'שומרים…' : 'שמירת הפרטים'}</SecondaryButton>
       </Section>
     </form>
   )
