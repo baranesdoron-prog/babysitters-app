@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { MessageSquare, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 import { Avatar } from '@/components/Avatar'
+import { WhatsAppButton } from '@/components/WhatsAppButton'
+import { shiftReminderText, shiftRequestText } from '@/lib/whatsapp'
 import { BottomSheet } from '@/components/BottomSheet'
 import { SplitBar } from '@/components/SplitBar'
 import {
@@ -39,7 +41,7 @@ import { cn, formatDayHeader, formatMoney, formatTime, localParts } from '@/lib/
 
 type Request = ShiftRequest & { babysitter: Babysitter }
 
-export function ShiftDetail() {
+export function ShiftDetail({ me }: { me: string }) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -179,9 +181,6 @@ export function ShiftDetail() {
     }, 'לא הצלחנו להוסיף את הפריט.')
 
   const askedIds = new Set(requests.map((r) => r.babysitter_id))
-  const smsBody = encodeURIComponent(
-    `היי, יש לנו בקשה למשמרת ב${formatDayHeader(startDate)}, ${formatTime(shift.start_at)}–${formatTime(shift.end_at)}. אפשר לענות באפליקציה.`,
-  )
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -212,6 +211,13 @@ export function ShiftDetail() {
               <p className="text-[17px] font-bold">{sitter.full_name}</p>
               <p className="text-muted-foreground text-sm">אישרה את המשמרת</p>
             </div>
+            {shift.status === 'confirmed' && !ended && (
+              <WhatsAppButton
+                phone={sitter.phone}
+                text={shiftReminderText(sitter.full_name, shift, me)}
+                ariaLabel={`תזכורת בוואטסאפ ל${sitter.full_name}`}
+              />
+            )}
             {sitter.phone && <CallButton name={sitter.full_name} phone={sitter.phone} />}
           </div>
           {shift.pickup_by === 'babysitter' && !sitter.has_child_seat && seatChild && (
@@ -258,14 +264,12 @@ export function ShiftDetail() {
                 >
                   {requestStatusLabels[r.status]}
                 </Pill>
-                {r.status === 'sent' && r.babysitter.phone && (
-                  <a
-                    href={`sms:${r.babysitter.phone}?&body=${smsBody}`}
-                    aria-label={`לשלוח הודעה ל${r.babysitter.full_name}`}
-                    className="bg-primary-soft text-primary-strong flex size-11 items-center justify-center rounded-lg"
-                  >
-                    <MessageSquare className="size-5" />
-                  </a>
+                {r.status === 'sent' && (
+                  <WhatsAppButton
+                    phone={r.babysitter.phone}
+                    text={shiftRequestText(r.babysitter.full_name, shift, me, window.location.origin)}
+                    ariaLabel={`וואטסאפ ל${r.babysitter.full_name} על הבקשה`}
+                  />
                 )}
               </li>
             ))}

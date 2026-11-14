@@ -73,7 +73,7 @@ export function App() {
       <Route element={<AppShell role="parent" isAdmin={user.is_admin} />}>
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/shifts/new" element={<ShiftForm />} />
-        <Route path="/shifts/:id" element={<ShiftDetail />} />
+        <Route path="/shifts/:id" element={<ShiftDetail me={displayName(user)} />} />
         <Route path="/babysitters" element={<Babysitters />} />
         <Route path="/babysitters/shared" element={<SharedBabysitters />} />
         <Route path="/babysitters/:id" element={<BabysitterForm myFamilyId={user.family_id} contact={{ name: displayName(user), phone: user.phone }} />} />

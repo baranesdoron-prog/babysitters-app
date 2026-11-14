@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { CalendarCheck, CheckCircle2, X } from 'lucide-react'
 
 import { BottomSheet } from '@/components/BottomSheet'
+import { WhatsAppButton } from '@/components/WhatsAppButton'
+import { introText } from '@/lib/whatsapp'
 import { DateInput } from '@/components/DateInput'
 import { ErrorText, Field, Loading, PrimaryButton, SecondaryButton, Section, TextButton } from '@/components/bits'
 import { Input } from '@/components/ui/input'
@@ -15,9 +17,13 @@ import { formatDayHeader, formatShortDate, formatTime, localParts, todayKey, zon
  * can't be booked until a meeting has taken place and we confirm "we met"
  * (confirm_met_babysitter(); the database enforces both).
  */
-export function IntroMeetings({ babysitterId, name, metAt, contact, onConfirmed }: {
+export function IntroMeetings({ babysitterId, name, phone, addedBy, metAt, contact, onConfirmed }: {
   babysitterId: string
   name: string
+  /** Her phone, for the WhatsApp introduction message. */
+  phone: string | null
+  /** The parent who added her to the app ("קיבלתי את המספר שלך מ…"). */
+  addedBy: string | null
   metAt: string | null
   /** Who she'll meet — prefilled from my profile. */
   contact: { name: string; phone: string | null }
@@ -102,6 +108,7 @@ export function IntroMeetings({ babysitterId, name, metAt, contact, onConfirmed 
       <p className="bg-pending-soft text-pending-foreground rounded-lg p-3 text-[15px]">
         לפני שקובעים איתה משמרות, נפגשים איתה פעם אחת או יותר. אחרי שהפגישה התקיימה, מאשרים כאן שנפגשתם.
       </p>
+      <WhatsAppButton phone={phone} text={introText(name, contact.name, addedBy)} label="הודעת היכרות בוואטסאפ" />
       {error && <ErrorText>{error}</ErrorText>}
       {!meetings && !error && <Loading />}
       {live.length > 0 && (

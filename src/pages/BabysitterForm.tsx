@@ -71,15 +71,17 @@ export function BabysitterForm({ myFamilyId, contact }: {
 
   const { data: existing, error, reload } = useLoad(async () => {
     if (isNew) return null
-    const [sitter, myTerms] = await Promise.all([
+    const [sitter, myTerms, addedBy] = await Promise.all([
       supabase.from('babysitters').select('*').eq('id', id!).single(),
       supabase.from('family_babysitters').select('*').eq('babysitter_id', id!).maybeSingle(),
+      // Who added her to the app — for "קיבלתי את המספר שלך מ…".
+      supabase.rpc('babysitter_added_by', { p_babysitter: id! }),
     ])
     if (sitter.error) throw new Error('לא מצאנו את הבייביסיטר.')
     const b = sitter.data as Babysitter
     const t = myTerms.data as SitterTerms | null
     if (b.family_id !== myFamilyId && !t) throw new Error('הבייביסיטר הזאת לא ברשימה שלכם.')
-    return { sitter: b, terms: t }
+    return { sitter: b, terms: t, addedBy: (addedBy.data as string | null) ?? null }
   }, [id, myFamilyId])
 
   useEffect(() => {
@@ -287,6 +289,8 @@ export function BabysitterForm({ myFamilyId, contact }: {
         <IntroMeetings
           babysitterId={id!}
           name={profile.full_name}
+          phone={profile.phone || null}
+          addedBy={existing.addedBy}
           metAt={existing.terms.met_at}
           contact={contact}
           onConfirmed={reload}
