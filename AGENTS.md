@@ -69,7 +69,10 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
    family's babysitter list = its `family_babysitters` rows (`fetchMySitters()`).
    Sharing is per babysitter (`babysitters.shared`, owner's switch) and
    give-to-get: a family sees other families' shared babysitters only while it
-   shares one of its own. Her availability is hers: families with her in their
+   shares one of its own. Adding a babysitter whose phone is already in the app
+   never creates a copy: `link_babysitter_by_phone()` adds her existing profile
+   to the family's list (shared or not) and only the family's terms are saved.
+   Her availability is hers: families with her in their
    list read it. She sees a family's kids, contacts and photos only around her
    confirmed shift *with that family* (`sitter_active_in()`), and each family's
    settings and rates with her.
