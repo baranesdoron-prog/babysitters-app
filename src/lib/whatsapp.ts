@@ -26,32 +26,52 @@ function when(s: ShiftForMessage) {
   return `${formatDayHeader(localParts(s.start_at).date)}, מ-${formatTime(s.start_at)} עד ${formatTime(s.end_at)}`
 }
 
-/** Reminder for a confirmed shift. */
-export function shiftReminderText(sitterName: string, s: ShiftForMessage, from: string) {
-  return [
-    `היי ${firstName(sitterName)}, תזכורת למשמרת אצלנו:`,
-    when(s),
-    s.pickup_by === 'babysitter' ? 'את אוספת מהגן — הפרטים באפליקציה.' : 'אנחנו אוספים מהגן.',
-    s.notes ? `הערה: ${s.notes}` : null,
-    `תודה! ${firstName(from)}`,
-  ].filter(Boolean).join('\n')
-}
-
-/** A request waiting for her answer. */
-export function shiftRequestText(sitterName: string, s: ShiftForMessage, from: string, appUrl: string) {
-  return [
-    `היי ${firstName(sitterName)}, יש לנו בקשה למשמרת:`,
-    when(s),
-    `אפשר לאשר או לסרב באפליקציה: ${appUrl}`,
-    `תודה! ${firstName(from)}`,
-  ].join('\n')
-}
-
 /** "א", "א וב", "א, ב וג" */
 function joinHebrew(items: string[]) {
   if (items.length <= 1) return items.join('')
   return `${items.slice(0, -1).join(', ')} ו${items[items.length - 1]}`
 }
+
+type Kid = { name: string; gender: Gender | null }
+
+/** "מיכל ותמר" / "הבנות" — names for up to three kids, otherwise the group word. */
+function kidsName(kids: Kid[]) {
+  if (kids.length === 0) return null
+  if (kids.length <= 3) return joinHebrew(kids.map((k) => k.name))
+  return kids.every((k) => k.gender === 'girl') ? 'הבנות' : kids.every((k) => k.gender === 'boy') ? 'הבנים' : 'הילדים'
+}
+
+/** "מחכה" for one kid, "מחכות" when they're all girls, otherwise "מחכים". */
+function waitVerb(kids: Kid[]) {
+  if (kids.length === 1) return 'מחכה'
+  return kids.every((k) => k.gender === 'girl') ? 'מחכות' : 'מחכים'
+}
+
+/** Reminder for a confirmed shift — warm, like a message from a parent. */
+export function shiftReminderText(sitterName: string, s: ShiftForMessage, from: string, kids: Kid[] = []) {
+  const names = kidsName(kids)
+  return [
+    `היי ${firstName(sitterName)}, מה שלומך?`,
+    `רק רציתי להזכיר שאת אצלנו ב${when(s)}.`,
+    s.pickup_by === 'babysitter'
+      ? `את אוספת${names ? ` את ${names}` : ''} מהגן, וכל הפרטים נמצאים באפליקציה.`
+      : 'אנחנו נאסוף מהגן, אז אפשר להגיע ישר אלינו.',
+    s.notes ? `עוד משהו קטן: ${s.notes}` : null,
+    names ? `${names} כבר ${waitVerb(kids)} לך!` : null,
+    `תודה רבה, ${firstName(from)}`,
+  ].filter(Boolean).join('\n')
+}
+
+/** A request waiting for her answer — asking, not announcing. */
+export function shiftRequestText(sitterName: string, s: ShiftForMessage, from: string, appUrl: string) {
+  return [
+    `היי ${firstName(sitterName)}, מה שלומך?`,
+    `רצינו לשאול אם את פנויה לבוא אלינו ב${when(s)}.`,
+    `נשמח מאוד אם תוכלי! אפשר לאשר, או לכתוב שלא מתאים, באפליקציה: ${appUrl}`,
+    `תודה, ${firstName(from)}`,
+  ].join('\n')
+}
+
 
 export type FamilyForIntro = {
   /** Parents' first names (me first). */

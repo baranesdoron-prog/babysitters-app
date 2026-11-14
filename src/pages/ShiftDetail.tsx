@@ -214,7 +214,7 @@ export function ShiftDetail({ me }: { me: string }) {
             {shift.status === 'confirmed' && !ended && (
               <WhatsAppButton
                 phone={sitter.phone}
-                text={shiftReminderText(sitter.full_name, shift, me)}
+                text={shiftReminderText(sitter.full_name, shift, me, children)}
                 ariaLabel={`תזכורת בוואטסאפ ל${sitter.full_name}`}
               />
             )}
