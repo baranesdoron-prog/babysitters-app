@@ -26,21 +26,37 @@ export interface Family {
 
 export type RateType = 'hourly' | 'per_shift'
 
+/** A babysitter's shared profile. Edited by the family that added her (family_id) and by her. */
 export interface Babysitter {
   id: string
+  family_id: string
   full_name: string
   phone: string | null
   photo_path: string | null
-  active: boolean
   night_ok: boolean
   helps_homework: boolean
   can_pickup: boolean
   has_child_seat: boolean
+  /** Offered to other families that share too. */
+  shared: boolean
+}
+
+/** One family's own terms with a babysitter (family_babysitters). Private to that family. */
+export interface SitterTerms {
+  family_id: string
+  babysitter_id: string
   day_rate_type: RateType
   day_rate: number | null
   night_rate_type: RateType
   night_rate: number | null
   notes: string | null
+  active: boolean
+}
+
+/** A babysitter in my family's list: her profile plus my family's terms. */
+export type MySitter = Babysitter & Omit<SitterTerms, 'family_id' | 'babysitter_id'> & {
+  /** My family added her (and so edits her profile). */
+  owned: boolean
 }
 
 export interface Settings {
@@ -66,6 +82,7 @@ export type Gender = 'boy' | 'girl'
 
 export interface Child {
   id: string
+  family_id: string
   name: string
   birth_date: string | null
   allergies: string | null
@@ -82,6 +99,7 @@ export type ContactKind = 'friend' | 'friend_parent' | 'emergency' | 'activity' 
 
 export interface Contact {
   id: string
+  family_id: string
   child_id: string | null
   name: string
   phone: string
@@ -91,6 +109,7 @@ export interface Contact {
 
 export interface SchoolSchedule {
   id: string
+  family_id: string
   child_id: string
   weekday: number
   end_time: string
@@ -113,6 +132,7 @@ export type PickupBy = 'parent' | 'babysitter'
 
 export interface Shift {
   id: string
+  family_id: string
   start_at: string
   end_at: string
   babysitter_id: string | null

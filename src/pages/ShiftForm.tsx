@@ -24,7 +24,8 @@ import { isAvailable } from '@/lib/availability'
 import { isOvernight, splitShift } from '@/lib/billing'
 import { CAR_SEAT_ITEM, formatRate, itemKindLabels } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
-import type { Availability, Babysitter, Child, ItemKind, ItemTemplate, PickupBy } from '@/lib/types'
+import { fetchMySitters } from '@/lib/sitters'
+import type { Availability, Child, ItemKind, ItemTemplate, PickupBy } from '@/lib/types'
 import { addDays, cn, formatDayHeader, formatHours, todayKey, zonedToIso } from '@/lib/utils'
 
 type DraftItem = { kind: ItemKind; description: string; child_id: string | null }
@@ -65,17 +66,17 @@ export function ShiftForm() {
   const { data, error } = useLoad(async () => {
     const [settings, sitters, avail, children, templates] = await Promise.all([
       fetchSettings(),
-      supabase.from('babysitters').select('*').eq('active', true).order('full_name'),
+      fetchMySitters({ activeOnly: true }),
       supabase.from('availability').select('*'),
       supabase.from('children').select('*').order('birth_date', { ascending: false }),
       supabase.from('item_templates').select('*').eq('auto_on', 'night'),
     ])
-    if (sitters.error || avail.error || children.error || templates.error) {
+    if (avail.error || children.error || templates.error) {
       throw new Error('לא הצלחנו לטעון את הנתונים למשמרת.')
     }
     return {
       settings,
-      sitters: sitters.data as Babysitter[],
+      sitters,
       availability: avail.data as Availability[],
       children: children.data as Child[],
       templates: templates.data as ItemTemplate[],

@@ -15,12 +15,12 @@ import {
   Section,
   WarningBox,
 } from '@/components/bits'
-import { fetchSettings } from '@/hooks/useSettings'
+import { DEFAULT_SETTINGS } from '@/hooks/useSettings'
 import { useLoad } from '@/hooks/useLoad'
 import { computeAmount, shiftAmount, splitShift } from '@/lib/billing'
 import { CAR_SEAT_ITEM, contactKindLabels, itemKindLabels } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
-import type { Babysitter, Child, Contact, SchoolSchedule, Settings, Shift, ShiftItem, ShiftRequest } from '@/lib/types'
+import type { Child, Contact, SchoolSchedule, Settings, Shift, ShiftItem, ShiftRequest, SitterTerms } from '@/lib/types'
 import { cn, formatDayHeader, formatHours, formatMoney, formatTime, localParts, trimTime } from '@/lib/utils'
 
 type OpenRequest = ShiftRequest & { shift: Shift }
@@ -31,9 +31,10 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
 
   const { data, error, reload } = useLoad(async () => {
     const since = new Date(Date.now() - 45 * 86400000).toISOString()
-    const [settings, me, requests, shifts] = await Promise.all([
-      fetchSettings(),
-      supabase.from('babysitters').select('*').eq('id', babysitterId).single(),
+    // She may work for several families: each has its own settings and its own rates with her.
+    const [settingsRows, terms, requests, shifts] = await Promise.all([
+      supabase.from('settings').select('family_id, night_start, default_wait_minutes, default_reminder_minutes'),
+      supabase.from('family_babysitters').select('*').eq('babysitter_id', babysitterId),
       supabase.from('shift_requests').select('*, shift:shifts(*)').eq('babysitter_id', babysitterId).eq('status', 'sent'),
       supabase
         .from('shifts')
@@ -43,7 +44,9 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
         .gte('end_at', since)
         .order('start_at'),
     ])
-    if (me.error || requests.error || shifts.error) throw new Error('לא הצלחנו לטעון את המשמרות שלך.')
+    if (settingsRows.error || terms.error || requests.error || shifts.error) throw new Error('לא הצלחנו לטעון את המשמרות שלך.')
+    const settingsByFamily = new Map((settingsRows.data as (Settings & { family_id: string })[]).map((r) => [r.family_id, r]))
+    const termsByFamily = new Map((terms.data as SitterTerms[]).map((t) => [t.family_id, t]))
     const myShifts = shifts.data as Shift[]
     const ids = myShifts.map((s) => s.id)
     // The girls' details are readable only around a confirmed shift (RLS); otherwise these come back empty.
@@ -54,8 +57,8 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
       supabase.from('school_schedule').select('*'),
     ])
     return {
-      settings,
-      me: me.data as Babysitter,
+      settingsFor: (familyId: string): Settings => settingsByFamily.get(familyId) ?? DEFAULT_SETTINGS,
+      ratesFor: (familyId: string) => termsByFamily.get(familyId) ?? null,
       requests: (requests.data as unknown as OpenRequest[]).filter((r) => r.shift),
       shifts: myShifts,
       items: (items.data ?? []) as ShiftItem[],
@@ -87,6 +90,10 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
   if (!data) return <Loading />
 
   const now = Date.now()
+  const pastEstimate = (s: Shift) => {
+    const rates = data.ratesFor(s.family_id)
+    return rates ? computeAmount(rates, splitShift(s.start_at, s.end_at, data.settingsFor(s.family_id).night_start), s.merged) : null
+  }
   const upcoming = data.shifts.filter((s) => new Date(s.end_at).getTime() >= now && s.status === 'confirmed')
   const past = data.shifts.filter((s) => !upcoming.includes(s)).reverse()
 
@@ -102,8 +109,8 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
             <RequestCard
               key={r.id}
               request={r}
-              me={data.me}
-              settings={data.settings}
+              rates={data.ratesFor(r.shift.family_id)}
+              settings={data.settingsFor(r.shift.family_id)}
               busy={busy === r.id}
               onAnswer={(accept) => respond(r.id, accept)}
             />
@@ -117,11 +124,11 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
         <ShiftCard
           key={s.id}
           shift={s}
-          settings={data.settings}
+          settings={data.settingsFor(s.family_id)}
           items={data.items.filter((i) => i.shift_id === s.id)}
-          kids={data.children}
-          contacts={data.contacts}
-          schedule={data.schedule}
+          kids={data.children.filter((c) => c.family_id === s.family_id)}
+          contacts={data.contacts.filter((c) => c.family_id === s.family_id)}
+          schedule={data.schedule.filter((r) => r.family_id === s.family_id)}
           busyItem={busy}
           onToggle={toggleItem}
         />
@@ -137,7 +144,7 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
                   <p className="text-muted-foreground text-sm"><span dir="ltr">{formatTime(s.start_at)}–{formatTime(s.end_at)}</span></p>
                 </div>
                 <span className="text-[15px] font-semibold">
-                  {formatMoney(s.actual_amount ?? s.computed_amount ?? computeAmount(data.me, splitShift(s.start_at, s.end_at, data.settings.night_start), s.merged))}
+                  {formatMoney(s.actual_amount ?? s.computed_amount ?? pastEstimate(s))}
                 </span>
                 {s.payment_id ? (
                   <Pill className="bg-success-soft text-success-foreground">שולם</Pill>
@@ -153,16 +160,17 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
   )
 }
 
-function RequestCard({ request, me, settings, busy, onAnswer }: {
+function RequestCard({ request, rates, settings, busy, onAnswer }: {
   request: OpenRequest
-  me: Babysitter
+  /** That family's rates with her (null if it hasn't set any). */
+  rates: SitterTerms | null
   settings: Settings
   busy: boolean
   onAnswer: (accept: boolean) => void
 }) {
   const s = request.shift
   const split = splitShift(s.start_at, s.end_at, settings.night_start)
-  const estimate = shiftAmount({ actual_amount: s.actual_amount, computed_amount: computeAmount(me, split, s.merged) })
+  const estimate = rates ? shiftAmount({ actual_amount: s.actual_amount, computed_amount: computeAmount(rates, split, s.merged) }) : null
   return (
     <section className="bg-card border-day flex flex-col gap-3 rounded-xl border-2 border-dashed p-4">
       <div className="flex items-start justify-between gap-2">
@@ -174,7 +182,8 @@ function RequestCard({ request, me, settings, busy, onAnswer }: {
       </div>
       <SplitBar dayHours={split.dayHours} nightHours={split.nightHours} />
       <p className="text-[15px]">
-        {s.pickup_by === 'babysitter' ? 'כולל איסוף מהגן' : 'ההורים אוספים'} · בערך {formatMoney(estimate)}
+        {s.pickup_by === 'babysitter' ? 'כולל איסוף מהגן' : 'ההורים אוספים'}
+        {estimate != null && <> · בערך {formatMoney(estimate)}</>}
       </p>
       {s.notes && <p className="text-muted-foreground text-[15px]">{s.notes}</p>}
       {request.deadline_at && (

@@ -31,6 +31,7 @@ import {
   shiftStatusTone,
 } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
+import { fetchMySitters } from '@/lib/sitters'
 import type { Babysitter, Child, ItemKind, Shift, ShiftItem, ShiftRequest } from '@/lib/types'
 import { cn, formatDayHeader, formatMoney, formatTime, localParts } from '@/lib/utils'
 
@@ -59,10 +60,10 @@ export function ShiftDetail() {
       supabase.from('shift_requests').select('*, babysitter:babysitters(*)').eq('shift_id', id!).order('position'),
       supabase.from('shift_items').select('*').eq('shift_id', id!).order('kind'),
       supabase.from('children').select('*'),
-      supabase.from('babysitters').select('*').eq('active', true).order('full_name'),
+      fetchMySitters(),
     ])
     if (shift.error) throw new Error('לא מצאנו את המשמרת.')
-    if (requests.error || items.error || children.error || sitters.error) {
+    if (requests.error || items.error || children.error) {
       throw new Error('לא הצלחנו לטעון את פרטי המשמרת.')
     }
     return {
@@ -71,7 +72,7 @@ export function ShiftDetail() {
       requests: requests.data as unknown as Request[],
       items: items.data as ShiftItem[],
       children: children.data as Child[],
-      sitters: sitters.data as Babysitter[],
+      sitters,
     }
   }, [id])
 
@@ -97,7 +98,9 @@ export function ShiftDetail() {
   const waitMs = (shift.wait_minutes ?? settings.default_wait_minutes) * 60000
   const reminderMs = (shift.reminder_minutes ?? settings.default_reminder_minutes) * 60000
   const reminderDue = current?.deadline_at && Date.now() >= new Date(current.deadline_at).getTime() - reminderMs
-  const computed = sitter ? computeAmount(sitter, split, shift.merged) : null
+  // Her rates are my family's terms with her (null if she's no longer in my list).
+  const terms = sitters.find((b) => b.id === shift.babysitter_id)
+  const computed = terms ? computeAmount(terms, split, shift.merged) : null
   const isOpen = shift.status === 'draft' || shift.status === 'requested'
   const ended = new Date(shift.end_at).getTime() < Date.now()
   const startDate = localParts(shift.start_at).date
@@ -270,7 +273,7 @@ export function ShiftDetail() {
           <div className="flex gap-2">
             <Select aria-label="להוסיף בייביסיטר" value={addSitter} onChange={(e) => setAddSitter(e.target.value)}>
               <option value="">להוסיף לתור…</option>
-              {sitters.filter((b) => !askedIds.has(b.id)).map((b) => (
+              {sitters.filter((b) => b.active && !askedIds.has(b.id)).map((b) => (
                 <option key={b.id} value={b.id}>{b.full_name}</option>
               ))}
             </Select>
