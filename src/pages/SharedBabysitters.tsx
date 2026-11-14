@@ -5,6 +5,8 @@ import { Avatar } from '@/components/Avatar'
 import { Empty, ErrorText, Loading, PageHeader, SecondaryButton, Tag } from '@/components/bits'
 import { useLoad } from '@/hooks/useLoad'
 import { fetchMySitters } from '@/lib/sitters'
+import { fetchBabysitterRatings } from '@/lib/ratings'
+import { RatingBadge } from '@/components/Rating'
 import { supabase } from '@/lib/supabase'
 import type { Babysitter } from '@/lib/types'
 
@@ -23,7 +25,8 @@ export function SharedBabysitters() {
     if (shared.error) throw new Error('לא הצלחנו לטעון את המאגר המשותף.')
     const inMyList = new Set(mine.map((b) => b.id))
     const iShare = mine.some((b) => b.owned && b.shared)
-    return { iShare, sitters: (shared.data as Babysitter[]).filter((b) => !inMyList.has(b.id)) }
+    const sitters = (shared.data as Babysitter[]).filter((b) => !inMyList.has(b.id))
+    return { iShare, sitters, ratings: await fetchBabysitterRatings(sitters.map((b) => b.id)) }
   }, [])
 
   async function add(b: Babysitter) {
@@ -54,7 +57,10 @@ export function SharedBabysitters() {
           <div className="flex items-center gap-3">
             <Avatar name={b.full_name} path={b.photo_path} size={48} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[17px] font-bold">{b.full_name}</p>
+              <p className="flex items-center gap-2">
+                <span className="truncate text-[17px] font-bold">{b.full_name}</span>
+                <RatingBadge summary={data.ratings.get(b.id)} />
+              </p>
               {b.phone && <p className="text-muted-foreground text-sm"><span dir="ltr">{b.phone}</span></p>}
             </div>
           </div>

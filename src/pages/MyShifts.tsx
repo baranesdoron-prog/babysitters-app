@@ -3,6 +3,8 @@ import { Moon, Sun } from 'lucide-react'
 
 import { Avatar } from '@/components/Avatar'
 import { SplitBar } from '@/components/SplitBar'
+import { RateShift, RatingBadge, Stars } from '@/components/Rating'
+import { fetchFamilyRatings, type RatingSummary, type ShiftRating } from '@/lib/ratings'
 import {
   CallButton,
   Empty,
@@ -13,6 +15,7 @@ import {
   PrimaryButton,
   SecondaryButton,
   Section,
+  TextButton,
   WarningBox,
 } from '@/components/bits'
 import { DEFAULT_SETTINGS } from '@/hooks/useSettings'
@@ -50,16 +53,22 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
     const myShifts = shifts.data as Shift[]
     const ids = myShifts.map((s) => s.id)
     // The girls' details are readable only around a confirmed shift (RLS); otherwise these come back empty.
-    const [items, children, contacts, schedule] = await Promise.all([
+    const openRequests = (requests.data as unknown as OpenRequest[]).filter((r) => r.shift)
+    const [items, children, contacts, schedule, ratings, familyRatings] = await Promise.all([
       ids.length ? supabase.from('shift_items').select('*').in('shift_id', ids) : Promise.resolve({ data: [], error: null }),
       supabase.from('children').select('*').order('birth_date'),
       supabase.from('contacts').select('*').order('name'),
       supabase.from('school_schedule').select('*'),
+      // My ratings of families (and theirs of me), and the asking families' averages.
+      ids.length ? supabase.from('shift_ratings').select('*').in('shift_id', ids) : Promise.resolve({ data: [], error: null }),
+      fetchFamilyRatings([...new Set(openRequests.map((r) => r.shift.family_id))]),
     ])
     return {
+      myRatingOf: (shiftId: string) => ((ratings.data ?? []) as ShiftRating[]).find((r) => r.shift_id === shiftId && r.rater === 'babysitter') ?? null,
+      familyRatings,
       settingsFor: (familyId: string): Settings => settingsByFamily.get(familyId) ?? DEFAULT_SETTINGS,
       ratesFor: (familyId: string) => termsByFamily.get(familyId) ?? null,
-      requests: (requests.data as unknown as OpenRequest[]).filter((r) => r.shift),
+      requests: openRequests,
       shifts: myShifts,
       items: (items.data ?? []) as ShiftItem[],
       children: (children.data ?? []) as Child[],
@@ -110,6 +119,7 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
               key={r.id}
               request={r}
               rates={data.ratesFor(r.shift.family_id)}
+              familyRating={data.familyRatings.get(r.shift.family_id)}
               settings={data.settingsFor(r.shift.family_id)}
               busy={busy === r.id}
               onAnswer={(accept) => respond(r.id, accept)}
@@ -138,20 +148,7 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
         <Section title="משמרות קודמות">
           <ul className="flex flex-col">
             {past.map((s) => (
-              <li key={s.id} className="border-muted flex min-h-12 items-center gap-2 border-b py-1 last:border-b-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-semibold">{formatDayHeader(localParts(s.start_at).date)}</p>
-                  <p className="text-muted-foreground text-sm"><span dir="ltr">{formatTime(s.start_at)}–{formatTime(s.end_at)}</span></p>
-                </div>
-                <span className="text-[15px] font-semibold">
-                  {formatMoney(s.actual_amount ?? s.computed_amount ?? pastEstimate(s))}
-                </span>
-                {s.payment_id ? (
-                  <Pill className="bg-success-soft text-success-foreground">שולם</Pill>
-                ) : (
-                  <Pill className="bg-pending-soft text-pending-foreground">לתשלום</Pill>
-                )}
-              </li>
+              <PastShift key={s.id} shift={s} amount={s.actual_amount ?? s.computed_amount ?? pastEstimate(s)} myRating={data.myRatingOf(s.id)} onRated={reload} />
             ))}
           </ul>
         </Section>
@@ -160,8 +157,55 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
   )
 }
 
-function RequestCard({ request, rates, settings, busy, onAnswer }: {
+/** A past shift: amount, paid or not, and my rating of the family (once it has ended). */
+function PastShift({ shift: s, amount, myRating, onRated }: {
+  shift: Shift
+  amount: number | null
+  myRating: ShiftRating | null
+  onRated: () => void
+}) {
+  const [rating, setRating] = useState(false)
+  const ended = new Date(s.end_at).getTime() < Date.now()
+  return (
+    <li className="border-muted flex flex-col gap-2 border-b py-2 last:border-b-0">
+      <div className="flex min-h-11 items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold">{formatDayHeader(localParts(s.start_at).date)}</p>
+          <p className="text-muted-foreground text-sm"><span dir="ltr">{formatTime(s.start_at)}–{formatTime(s.end_at)}</span></p>
+        </div>
+        <span className="text-[15px] font-semibold">{formatMoney(amount)}</span>
+        {s.payment_id ? (
+          <Pill className="bg-success-soft text-success-foreground">שולם</Pill>
+        ) : (
+          <Pill className="bg-pending-soft text-pending-foreground">לתשלום</Pill>
+        )}
+      </div>
+      {ended && !rating && (
+        myRating ? (
+          <button type="button" onClick={() => setRating(true)} className="flex min-h-11 items-center gap-2 text-start" aria-label="לשנות את הדירוג שלי">
+            <span className="text-muted-foreground text-sm">הדירוג שלך:</span>
+            <Stars value={myRating.stars} />
+          </button>
+        ) : (
+          <TextButton onClick={() => setRating(true)}>לדרג את המשפחה</TextButton>
+        )
+      )}
+      {rating && (
+        <RateShift
+          shiftId={s.id}
+          initial={myRating}
+          commentHint="מילה על המשמרת (רק המשפחה תראה)"
+          onSaved={() => { setRating(false); onRated() }}
+        />
+      )}
+    </li>
+  )
+}
+
+function RequestCard({ request, rates, familyRating, settings, busy, onAnswer }: {
   request: OpenRequest
+  /** The asking family's average from babysitters. */
+  familyRating: RatingSummary | undefined
   /** That family's rates with her (null if it hasn't set any). */
   rates: SitterTerms | null
   settings: Settings
@@ -178,7 +222,10 @@ function RequestCard({ request, rates, settings, busy, onAnswer }: {
           <p className="text-[17px] font-bold">{formatDayHeader(localParts(s.start_at).date)}</p>
           <p className="text-muted-foreground text-[15px]"><span dir="ltr">{formatTime(s.start_at)}–{formatTime(s.end_at)}</span></p>
         </div>
-        <Pill className="bg-pending-soft text-pending-foreground">ממתינה לתשובה</Pill>
+        <div className="flex flex-col items-end gap-1">
+          <Pill className="bg-pending-soft text-pending-foreground">ממתינה לתשובה</Pill>
+          <RatingBadge summary={familyRating} />
+        </div>
       </div>
       <SplitBar dayHours={split.dayHours} nightHours={split.nightHours} />
       <p className="text-[15px]">

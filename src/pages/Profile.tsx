@@ -11,6 +11,9 @@ import { supabase } from '@/lib/supabase'
 import type { AppUser, Babysitter } from '@/lib/types'
 import { detailsRow } from '@/lib/people'
 import { ParentDetailsFields } from './ParentForm'
+import { RatingBadge, Stars } from '@/components/Rating'
+import { fetchBabysitterRatings, fetchFamilyRatings, type ShiftRating } from '@/lib/ratings'
+import { formatShortDate, localParts } from '@/lib/utils'
 
 // "הפרופיל שלי": your own details and password. Parents edit their app_users
 // row directly; a babysitter goes through update_my_babysitter_profile().
@@ -25,6 +28,7 @@ export function Profile({ user, onChange }: { user: AppUser; onChange: () => voi
           {user.role === 'babysitter' ? 'רוצה לשנות? בקשי מההורים.' : 'אפשר לשנות דרך הורה אחר, במסך "הורים".'}
         </p>
       </Section>
+      <RatingsReceived user={user} />
       <PasswordSection />
     </div>
   )
@@ -154,6 +158,55 @@ function PasswordSection() {
     <Section title="שינוי סיסמה">
       {done && <p className="text-success-foreground text-[15px]" role="status">הסיסמה שונתה.</p>}
       <PasswordForm submitLabel="לשנות סיסמה" onDone={() => setDone(true)} />
+    </Section>
+  )
+}
+
+/**
+ * Ratings I received: for a parent, what babysitters said about the family;
+ * for a babysitter, what families said about her. RLS shows only these.
+ */
+function RatingsReceived({ user }: { user: AppUser }) {
+  const isSitter = user.role === 'babysitter'
+  const { data, error } = useLoad(async () => {
+    const [rows, summary] = await Promise.all([
+      supabase
+        .from('shift_ratings')
+        .select('*, babysitter:babysitters(full_name)')
+        .eq('rater', isSitter ? 'family' : 'babysitter')
+        .order('created_at', { ascending: false })
+        .limit(30),
+      isSitter
+        ? fetchBabysitterRatings([user.babysitter_id!]).then((m) => m.get(user.babysitter_id!))
+        : fetchFamilyRatings([user.family_id!]).then((m) => m.get(user.family_id!)),
+    ])
+    if (rows.error) throw new Error('לא הצלחנו לטעון את הדירוגים.')
+    return { rows: rows.data as (ShiftRating & { babysitter: { full_name: string } | null })[], summary }
+  }, [user.id])
+
+  return (
+    <Section title={isSitter ? 'הדירוגים שלי' : 'איך הבייביסיטריות דירגו אותנו'} action={<RatingBadge summary={data?.summary} />}>
+      {error && <ErrorText>{error}</ErrorText>}
+      {!data && !error && <Loading />}
+      {data?.rows.length === 0 && (
+        <p className="text-muted-foreground text-sm">
+          {isSitter ? 'עוד אין דירוגים. משפחות מדרגות אחרי שמשמרת מסתיימת.' : 'עוד אין דירוגים. בייביסיטריות מדרגות אחרי שמשמרת מסתיימת.'}
+        </p>
+      )}
+      <ul className="flex flex-col">
+        {data?.rows.map((r) => (
+          <li key={r.id} className="border-muted flex flex-col gap-1 border-b py-2 last:border-b-0">
+            <div className="flex items-center gap-2">
+              <Stars value={r.stars} />
+              <span className="text-muted-foreground text-sm">
+                {formatShortDate(localParts(r.created_at).date)}
+                {!isSitter && r.babysitter && ` · ${r.babysitter.full_name}`}
+              </span>
+            </div>
+            {r.comment && <p className="text-[15px]">{r.comment}</p>}
+          </li>
+        ))}
+      </ul>
     </Section>
   )
 }

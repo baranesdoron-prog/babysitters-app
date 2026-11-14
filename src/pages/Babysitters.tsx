@@ -6,11 +6,17 @@ import { CallButton, Empty, ErrorText, Fab, Loading, PageHeader, Pill, Tag } fro
 import { useLoad } from '@/hooks/useLoad'
 import { formatRate } from '@/lib/labels'
 import { fetchMySitters } from '@/lib/sitters'
+import { fetchBabysitterRatings } from '@/lib/ratings'
+import { RatingBadge } from '@/components/Rating'
 import type { MySitter } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 export function Babysitters() {
-  const { data: rows, error } = useLoad(() => fetchMySitters(), [])
+  const { data, error } = useLoad(async () => {
+    const rows = await fetchMySitters()
+    return { rows, ratings: await fetchBabysitterRatings(rows.map((b) => b.id)) }
+  }, [])
+  const rows = data?.rows
 
   // Give to get: the shared list opens once my family shares one of its own.
   const iShare = rows?.some((b) => b.owned && b.shared) ?? false
@@ -27,7 +33,10 @@ export function Babysitters() {
             <Avatar name={b.full_name} path={b.photo_path} size={48} tone={i % 2 ? 'babysitter-alt' : 'babysitter'} />
             <Link to={`/babysitters/${b.id}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-1">
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[17px] font-bold">{b.full_name}</span>
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-[17px] font-bold">{b.full_name}</span>
+                  <RatingBadge summary={data!.ratings.get(b.id)} />
+                </span>
                 {b.phone && <span className="text-muted-foreground text-sm" dir="ltr">{b.phone}</span>}
                 {!b.active && <span className="text-muted-foreground text-sm">לא פעילה</span>}
               </span>

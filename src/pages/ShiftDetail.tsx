@@ -32,6 +32,8 @@ import {
 } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
 import { fetchMySitters } from '@/lib/sitters'
+import type { ShiftRating } from '@/lib/ratings'
+import { RateShift, Stars } from '@/components/Rating'
 import type { Babysitter, Child, ItemKind, Shift, ShiftItem, ShiftRequest } from '@/lib/types'
 import { cn, formatDayHeader, formatMoney, formatTime, localParts } from '@/lib/utils'
 
@@ -54,13 +56,14 @@ export function ShiftDetail() {
   const [confirmCancel, setConfirmCancel] = useState(false)
 
   const { data, error, reload } = useLoad(async () => {
-    const [settings, shift, requests, items, children, sitters] = await Promise.all([
+    const [settings, shift, requests, items, children, sitters, ratings] = await Promise.all([
       fetchSettings(),
       supabase.from('shifts').select('*').eq('id', id!).single(),
       supabase.from('shift_requests').select('*, babysitter:babysitters(*)').eq('shift_id', id!).order('position'),
       supabase.from('shift_items').select('*').eq('shift_id', id!).order('kind'),
       supabase.from('children').select('*'),
       fetchMySitters(),
+      supabase.from('shift_ratings').select('*').eq('shift_id', id!),
     ])
     if (shift.error) throw new Error('לא מצאנו את המשמרת.')
     if (requests.error || items.error || children.error) {
@@ -73,6 +76,7 @@ export function ShiftDetail() {
       items: items.data as ShiftItem[],
       children: children.data as Child[],
       sitters,
+      ratings: (ratings.data ?? []) as ShiftRating[],
     }
   }, [id])
 
@@ -103,6 +107,8 @@ export function ShiftDetail() {
   const computed = terms ? computeAmount(terms, split, shift.merged) : null
   const isOpen = shift.status === 'draft' || shift.status === 'requested'
   const ended = new Date(shift.end_at).getTime() < Date.now()
+  const ourRating = data.ratings.find((r) => r.rater === 'family') ?? null
+  const theirRating = data.ratings.find((r) => r.rater === 'babysitter') ?? null
   const startDate = localParts(shift.start_at).date
   const seatChild = children.find((c) => c.needs_child_seat)
   const childName = (cid: string | null) => children.find((c) => c.id === cid)?.name
@@ -350,6 +356,25 @@ export function ShiftDetail() {
               </Field>
               <p className="text-muted-foreground text-sm">עזרה בשיעורים לא משולמת בנפרד.</p>
             </>
+          )}
+        </Section>
+      )}
+
+      {sitter && ended && (shift.status === 'confirmed' || shift.status === 'done') && (
+        <Section title="איך היה?">
+          <RateShift
+            key={ourRating?.stars ?? 0}
+            shiftId={shift.id}
+            initial={ourRating}
+            commentHint={`מילה על ${sitter.full_name} (רק היא ואתם תראו)`}
+            onSaved={reload}
+          />
+          {theirRating && (
+            <div className="border-muted flex flex-col gap-1 border-t pt-3">
+              <p className="text-sm font-semibold">{sitter.full_name} דירגה אתכם</p>
+              <Stars value={theirRating.stars} />
+              {theirRating.comment && <p className="text-[15px]">{theirRating.comment}</p>}
+            </div>
           )}
         </Section>
       )}

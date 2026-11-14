@@ -128,6 +128,12 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
   15 min). At the reminder the parent chooses: ping again or move to the next.
 - **Candidate list:** only babysitters available in those hours, and only those
   with `night_ok` when the shift has a night part.
+- **Ratings (mutual, per shift):** after a shift with a babysitter has ended,
+  the family rates her and she rates the family: 1–5 stars + optional comment,
+  once per side (editable), only through `rate_shift()`. Her average
+  (`babysitter_ratings()`) is shown to every family that can see her; a family's
+  average (`family_ratings()`) to the babysitters it asks or books. A comment is
+  seen only by the two sides of that shift (`shift_ratings` RLS).
 - **Payments:** one payment may cover several unpaid shifts of the same
   babysitter. When paying, always look up her other unpaid shifts and offer to
   combine them (all ticked by default).
