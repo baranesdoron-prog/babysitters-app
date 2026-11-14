@@ -3,17 +3,26 @@
 -- only its own terms. Knowing her number is enough, shared or not. Her
 -- profile stays with the family that added her first.
 
--- "+972 52-123 4567" / "052-1234567" → "0521234567"
+-- One format for comparing phone numbers: digits only, without the country
+-- code, starting with a single 0. "+972 52-123 4567", "+972 052-1234567",
+-- "00972521234567", "052-1234567" and "52-1234567" all become "0521234567".
 create or replace function public.normalize_phone(p_phone text)
 returns text
 language sql
 immutable
 as $$
   select case
-    when d like '972%' and length(d) = 12 then '0' || substr(d, 4)
-    else d
+    when d = '' then ''
+    when d like '0%' then d
+    else '0' || d
   end
-  from (select regexp_replace(coalesce(p_phone, ''), '\D', '', 'g') as d) x;
+  from (
+    select regexp_replace(                                   -- the country code
+             regexp_replace(                                 -- the international prefix
+               regexp_replace(coalesce(p_phone, ''), '\D', '', 'g'),
+               '^00', ''),
+             '^972', '') as d
+  ) x;
 $$;
 
 create index babysitters_phone_idx on public.babysitters (public.normalize_phone(phone));
