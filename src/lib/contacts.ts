@@ -28,11 +28,14 @@ export function canPickContacts() {
   return contactsManager() !== null
 }
 
-/** "+972 52-123 4567" / "052-1234567" → "052-1234567"; anything else is kept, trimmed. */
+/**
+ * Israeli numbers without the country code, starting with a single 0 (the same
+ * rule as normalize_phone() in the database): "+972 052-123 4567" → "052-1234567".
+ * Anything else is kept, trimmed.
+ */
 export function normalizePhone(raw: string) {
-  let digits = raw.replace(/[^\d+]/g, '')
-  if (digits.startsWith('+972')) digits = '0' + digits.slice(4)
-  else if (digits.startsWith('972') && digits.length === 12) digits = '0' + digits.slice(3)
+  let digits = raw.replace(/\D/g, '').replace(/^00/, '').replace(/^972/, '')
+  if (digits && !digits.startsWith('0')) digits = '0' + digits
   if (/^05\d{8}$/.test(digits)) return `${digits.slice(0, 3)}-${digits.slice(3)}`
   if (/^0\d{8,9}$/.test(digits)) return digits
   return raw.trim()

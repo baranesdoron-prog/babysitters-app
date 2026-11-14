@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { useAppUser } from '@/hooks/useAppUser'
+import { displayName } from '@/lib/people'
 import { AppShell } from '@/components/AppShell'
 import { Login } from '@/pages/Login'
 import { PendingRole } from '@/pages/PendingRole'
@@ -75,7 +76,7 @@ export function App() {
         <Route path="/shifts/:id" element={<ShiftDetail />} />
         <Route path="/babysitters" element={<Babysitters />} />
         <Route path="/babysitters/shared" element={<SharedBabysitters />} />
-        <Route path="/babysitters/:id" element={<BabysitterForm myFamilyId={user.family_id} />} />
+        <Route path="/babysitters/:id" element={<BabysitterForm myFamilyId={user.family_id} contact={{ name: displayName(user), phone: user.phone }} />} />
         <Route path="/parents" element={<Parents myId={user.id} isAdmin={user.is_admin} />} />
         <Route path="/parents/:id" element={<ParentForm myId={user.id} />} />
         <Route path="/children" element={<Children />} />

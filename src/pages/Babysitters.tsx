@@ -5,7 +5,7 @@ import { Avatar } from '@/components/Avatar'
 import { CallButton, Empty, ErrorText, Fab, Loading, PageHeader, Pill, Tag } from '@/components/bits'
 import { useLoad } from '@/hooks/useLoad'
 import { formatRate } from '@/lib/labels'
-import { fetchMySitters } from '@/lib/sitters'
+import { canBook, fetchMySitters } from '@/lib/sitters'
 import { fetchBabysitterRatings } from '@/lib/ratings'
 import { RatingBadge } from '@/components/Rating'
 import type { MySitter } from '@/lib/types'
@@ -47,6 +47,7 @@ export function Babysitters() {
           <RateBlocks sitter={b} />
           <div className="flex flex-wrap gap-2">
             {!b.owned && <Pill className="bg-night-soft text-night-foreground">מהמאגר המשותף</Pill>}
+            {!canBook(b) && <Pill className="bg-pending-soft text-pending-foreground">צריך פגישת היכרות</Pill>}
             {b.owned && b.shared && <Pill className="bg-primary-soft text-primary-strong">משותפת</Pill>}
             {b.helps_homework && <Tag>עוזרת בשיעורים</Tag>}
             {b.can_pickup && <Tag>יכולה לאסוף</Tag>}

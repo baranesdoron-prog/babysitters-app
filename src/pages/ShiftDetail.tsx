@@ -31,7 +31,7 @@ import {
   shiftStatusTone,
 } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
-import { fetchMySitters } from '@/lib/sitters'
+import { canBook, fetchMySitters } from '@/lib/sitters'
 import type { ShiftRating } from '@/lib/ratings'
 import { RateShift, Stars } from '@/components/Rating'
 import type { Babysitter, Child, ItemKind, Shift, ShiftItem, ShiftRequest } from '@/lib/types'
@@ -279,7 +279,7 @@ export function ShiftDetail() {
           <div className="flex gap-2">
             <Select aria-label="להוסיף בייביסיטר" value={addSitter} onChange={(e) => setAddSitter(e.target.value)}>
               <option value="">להוסיף לתור…</option>
-              {sitters.filter((b) => b.active && !askedIds.has(b.id)).map((b) => (
+              {sitters.filter((b) => b.active && canBook(b) && !askedIds.has(b.id)).map((b) => (
                 <option key={b.id} value={b.id}>{b.full_name}</option>
               ))}
             </Select>

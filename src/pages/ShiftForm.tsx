@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowUp, Moon, Sun, Trash2 } from 'lucide-react'
 
 import { Avatar } from '@/components/Avatar'
@@ -24,7 +24,7 @@ import { isAvailable } from '@/lib/availability'
 import { isOvernight, splitShift } from '@/lib/billing'
 import { CAR_SEAT_ITEM, formatRate, itemKindLabels } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
-import { fetchMySitters } from '@/lib/sitters'
+import { canBook, fetchMySitters } from '@/lib/sitters'
 import { fetchBabysitterRatings } from '@/lib/ratings'
 import { RatingBadge } from '@/components/Rating'
 import type { Availability, Child, ItemKind, ItemTemplate, PickupBy } from '@/lib/types'
@@ -101,10 +101,12 @@ export function ShiftForm() {
 
   // Who can do this shift at all (active; does nights when it has a night part),
   // and of those, who marked herself available for these hours.
+  // Not yet met (from the shared list / added by phone) can't be booked: listed apart.
   const eligible = useMemo(
-    () => (data ? data.sitters.filter((b) => !hasNight || b.night_ok) : []),
+    () => (data ? data.sitters.filter((b) => (!hasNight || b.night_ok) && canBook(b)) : []),
     [data, hasNight],
   )
+  const needMeeting = data ? data.sitters.filter((b) => (!hasNight || b.night_ok) && !canBook(b)) : []
   const candidates = useMemo(() => {
     if (!data) return []
     return eligible.filter((b) => isAvailable(data.availability.filter((a) => a.babysitter_id === b.id), startAt, endAt))
@@ -304,6 +306,18 @@ export function ShiftForm() {
         />
         {eligible.length === 0 && (
           <Empty>{hasNight ? 'אין בייביסיטריות פעילות שעושות לילות.' : 'אין בייביסיטריות פעילות.'}</Empty>
+        )}
+        {needMeeting.length > 0 && (
+          <p className="text-muted-foreground text-sm">
+            צריך קודם פגישת היכרות עם{' '}
+            {needMeeting.map((b, i) => (
+              <span key={b.id}>
+                {i > 0 && ', '}
+                <Link to={`/babysitters/${b.id}`} className="text-primary font-semibold">{b.full_name}</Link>
+              </span>
+            ))}
+            . אחרי שתאשרו שנפגשתם, אפשר יהיה לקבוע איתה משמרות.
+          </p>
         )}
         {mode === 'direct' ? (
           <>

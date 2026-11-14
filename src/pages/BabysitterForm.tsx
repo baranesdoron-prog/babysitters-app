@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Moon, Share2, Sun } from 'lucide-react'
 
 import { Avatar, AvatarPicker } from '@/components/Avatar'
 import { BottomSheet } from '@/components/BottomSheet'
 import { ContactImport } from '@/components/ContactImport'
+import { IntroMeetings } from '@/components/IntroMeetings'
 import { LoginSection } from '@/components/LoginSection'
 import { Segmented } from '@/components/Segmented'
 import { CheckRow, ErrorText, Field, Loading, PageHeader, PrimaryButton, SecondaryButton, Section, Tag, TextButton } from '@/components/bits'
@@ -39,8 +40,13 @@ const rateOptions: { value: RateType; label: string }[] = [
   { value: 'per_shift', label: 'למשמרת' },
 ]
 
-export function BabysitterForm({ myFamilyId }: { myFamilyId: string | null }) {
+export function BabysitterForm({ myFamilyId, contact }: {
+  myFamilyId: string | null
+  /** Me, as the contact for an introduction meeting. */
+  contact: { name: string; phone: string | null }
+}) {
   const { id } = useParams<{ id: string }>()
+  const notice = (useLocation().state as { notice?: string } | null)?.notice
   const isNew = !id || id === 'new'
   const navigate = useNavigate()
   const [profile, setProfile] = useState<Profile | null>(isNew ? EMPTY_PROFILE : null)
@@ -60,7 +66,7 @@ export function BabysitterForm({ myFamilyId }: { myFamilyId: string | null }) {
     return { email: (res.data?.email as string | undefined) ?? null }
   }, [id])
 
-  const { data: existing, error } = useLoad(async () => {
+  const { data: existing, error, reload } = useLoad(async () => {
     if (isNew) return null
     const [sitter, myTerms] = await Promise.all([
       supabase.from('babysitters').select('*').eq('id', id!).single(),
@@ -111,7 +117,25 @@ export function BabysitterForm({ myFamilyId }: { myFamilyId: string | null }) {
     setBusy(true)
     setSaveError(null)
     let sitterId = id!
-    if (owned) {
+    let linkedNotice: string | null = null
+    // Already in the app (same phone)? Then she isn't created again: she joins
+    // our list and only our terms below are saved.
+    if (isNew && profile!.phone.trim()) {
+      const { data: found, error: findError } = await supabase.rpc('link_babysitter_by_phone', { p_phone: profile!.phone })
+      const existing = (found as { babysitter_id: string; full_name: string; owned: boolean }[] | null)?.[0]
+      if (findError) {
+        setBusy(false)
+        setSaveError('לא הצלחנו לשמור. נסו שוב.')
+        return
+      }
+      if (existing) {
+        sitterId = existing.babysitter_id
+        linkedNotice = existing.owned
+          ? `${existing.full_name} כבר ברשימה שלכם, אז עדכנו את התעריפים שלה.`
+          : `${existing.full_name} כבר באפליקציה, אז הוספנו אותה לרשימה שלכם עם התעריפים שלכם. לפני משמרת ראשונה קובעים איתה פגישת היכרות (למטה).`
+      }
+    }
+    if (owned && !linkedNotice) {
       const row = {
         full_name: profile!.full_name.trim(),
         phone: profile!.phone.trim() || null,
@@ -149,7 +173,7 @@ export function BabysitterForm({ myFamilyId }: { myFamilyId: string | null }) {
       if (isNew) navigate(`/babysitters/${sitterId}`, { replace: true })
       return
     }
-    if (isNew && pendingPhoto) {
+    if (isNew && pendingPhoto && !linkedNotice) {
       // The babysitter is saved either way; a failed photo can be added again on her card.
       try {
         const path = await uploadPhoto('babysitters', sitterId, new File([pendingPhoto], 'contact.jpg', { type: pendingPhoto.type }))
@@ -157,7 +181,7 @@ export function BabysitterForm({ myFamilyId }: { myFamilyId: string | null }) {
       } catch { /* shown as no photo; she can add one from her card */ }
     }
     setBusy(false)
-    navigate(isNew ? `/babysitters/${sitterId}` : '/babysitters', { replace: isNew })
+    navigate(isNew ? `/babysitters/${sitterId}` : '/babysitters', { replace: isNew, state: linkedNotice ? { notice: linkedNotice } : null })
   }
 
   async function onPhoto(file: File) {
@@ -192,6 +216,7 @@ export function BabysitterForm({ myFamilyId }: { myFamilyId: string | null }) {
     <div className="flex flex-col gap-3.5">
     <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
       <PageHeader title={isNew ? 'בייביסיטר חדשה' : profile.full_name || 'בייביסיטר'} back="/babysitters" />
+      {notice && <p className="bg-success-soft text-success-foreground rounded-lg p-3 text-[15px]" role="status">{notice}</p>}
       {owned && <ContactImport onImport={(c) => void onImport(c)} />}
 
       {owned ? (
@@ -232,6 +257,16 @@ export function BabysitterForm({ myFamilyId }: { myFamilyId: string | null }) {
             מהמאגר המשותף. את הפרטים שלה מעדכנת המשפחה שהוסיפה אותה, או היא עצמה. התעריפים וההערות כאן הם שלכם בלבד.
           </p>
         </Section>
+      )}
+
+      {!owned && existing?.terms && (
+        <IntroMeetings
+          babysitterId={id!}
+          name={profile.full_name}
+          metAt={existing.terms.met_at}
+          contact={contact}
+          onConfirmed={reload}
+        />
       )}
 
       <Section title="תעריף יום" className="border-day border-t-4">

@@ -23,7 +23,7 @@ import { useLoad } from '@/hooks/useLoad'
 import { computeAmount, shiftAmount, splitShift } from '@/lib/billing'
 import { CAR_SEAT_ITEM, contactKindLabels, itemKindLabels } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
-import type { Child, Contact, SchoolSchedule, Settings, Shift, ShiftItem, ShiftRequest, SitterTerms } from '@/lib/types'
+import type { Child, Contact, IntroMeeting, SchoolSchedule, Settings, Shift, ShiftItem, ShiftRequest, SitterTerms } from '@/lib/types'
 import { cn, formatDayHeader, formatHours, formatMoney, formatTime, localParts, trimTime } from '@/lib/utils'
 
 type OpenRequest = ShiftRequest & { shift: Shift }
@@ -54,7 +54,7 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
     const ids = myShifts.map((s) => s.id)
     // The girls' details are readable only around a confirmed shift (RLS); otherwise these come back empty.
     const openRequests = (requests.data as unknown as OpenRequest[]).filter((r) => r.shift)
-    const [items, children, contacts, schedule, ratings, familyRatings] = await Promise.all([
+    const [items, children, contacts, schedule, ratings, familyRatings, meetings] = await Promise.all([
       ids.length ? supabase.from('shift_items').select('*').in('shift_id', ids) : Promise.resolve({ data: [], error: null }),
       supabase.from('children').select('*').order('birth_date'),
       supabase.from('contacts').select('*').order('name'),
@@ -62,10 +62,18 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
       // My ratings of families (and theirs of me), and the asking families' averages.
       ids.length ? supabase.from('shift_ratings').select('*').in('shift_id', ids) : Promise.resolve({ data: [], error: null }),
       fetchFamilyRatings([...new Set(openRequests.map((r) => r.shift.family_id))]),
+      // Introduction meetings families scheduled with me (from two hours ago on).
+      supabase
+        .from('intro_meetings')
+        .select('*')
+        .eq('cancelled', false)
+        .gte('start_at', new Date(Date.now() - 2 * 3600e3).toISOString())
+        .order('start_at'),
     ])
     return {
       myRatingOf: (shiftId: string) => ((ratings.data ?? []) as ShiftRating[]).find((r) => r.shift_id === shiftId && r.rater === 'babysitter') ?? null,
       familyRatings,
+      meetings: (meetings.data ?? []) as IntroMeeting[],
       settingsFor: (familyId: string): Settings => settingsByFamily.get(familyId) ?? DEFAULT_SETTINGS,
       ratesFor: (familyId: string) => termsByFamily.get(familyId) ?? null,
       requests: openRequests,
@@ -110,6 +118,28 @@ export function MyShifts({ babysitterId }: { babysitterId: string }) {
     <div className="flex flex-col gap-3.5">
       <PageHeader title="המשמרות שלי" />
       {actionError && <ErrorText>{actionError}</ErrorText>}
+
+      {data.meetings.length > 0 && (
+        <Section title="פגישות היכרות">
+          <p className="text-muted-foreground text-sm">משפחה חדשה רוצה להכיר אותך לפני שקובעים משמרות.</p>
+          <ul className="flex flex-col">
+            {data.meetings.map((m) => (
+              <li key={m.id} className="border-muted flex min-h-12 items-center gap-2 border-b py-2 last:border-b-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-semibold">
+                    {formatDayHeader(localParts(m.start_at).date)} · {formatTime(m.start_at)}
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    {[m.place, m.contact_name && `עם ${m.contact_name}`].filter(Boolean).join(' · ')}
+                  </p>
+                  {m.notes && <p className="text-[15px]">{m.notes}</p>}
+                </div>
+                {m.contact_phone && <CallButton name={m.contact_name ?? 'המשפחה'} phone={m.contact_phone} />}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       {data.requests.length > 0 && (
         <div className="flex flex-col gap-3">
