@@ -51,6 +51,21 @@ export interface SitterTerms {
   night_rate: number | null
   notes: string | null
   active: boolean
+  /** When my family confirmed it met her; null = an introduction meeting is still needed. */
+  met_at: string | null
+}
+
+/** An introduction meeting with a babysitter my family didn't add itself. */
+export interface IntroMeeting {
+  id: string
+  family_id: string
+  babysitter_id: string
+  start_at: string
+  place: string | null
+  contact_name: string | null
+  contact_phone: string | null
+  notes: string | null
+  cancelled: boolean
 }
 
 /** A babysitter in my family's list: her profile plus my family's terms. */

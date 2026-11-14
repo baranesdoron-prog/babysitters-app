@@ -1,6 +1,11 @@
 import { supabase } from './supabase'
 import type { Babysitter, MySitter, SitterTerms } from './types'
 
+/** Can my family put her on a shift? Its own babysitters, or ones it has met. */
+export function canBook(sitter: Pick<MySitter, 'owned' | 'met_at'>) {
+  return sitter.owned || sitter.met_at !== null
+}
+
 /**
  * My family's babysitters: each one's shared profile with my family's own
  * terms (rates, notes, active). RLS returns only my family's terms rows.

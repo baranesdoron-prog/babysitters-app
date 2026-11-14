@@ -72,6 +72,12 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
    shares one of its own. Adding a babysitter whose phone is already in the app
    never creates a copy: `link_babysitter_by_phone()` adds her existing profile
    to the family's list (shared or not) and only the family's terms are saved.
+   **Introduction meeting first:** a babysitter the family didn't add itself
+   can't be put on a shift or sent a request (`my_family_may_book()` in the
+   shifts / shift_requests policies) until the family scheduled an
+   `intro_meetings` row, it took place, and the family confirmed
+   (`confirm_met_babysitter()` sets `family_babysitters.met_at`; a trigger
+   keeps anything else from setting it). She sees her meetings.
    Her availability is hers: families with her in their
    list read it. She sees a family's kids, contacts and photos only around her
    confirmed shift *with that family* (`sitter_active_in()`), and each family's
