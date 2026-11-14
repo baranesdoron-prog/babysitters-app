@@ -143,6 +143,12 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
   (`babysitter_ratings()`) is shown to every family that can see her; a family's
   average (`family_ratings()`) to the babysitters it asks or books. A comment is
   seen only by the two sides of that shift (`shift_ratings` RLS).
+- **WhatsApp:** messages go out as `wa.me` links (`lib/whatsapp.ts`) that open
+  WhatsApp with the text ready; the parent presses send. Shift reminder and
+  request on the shift page; on a shared babysitter's card an introduction
+  naming the parent who added her (`babysitter_added_by()`). Write time
+  ranges in words ("מ-16:00 עד 20:00"): a dash range shows reversed in a
+  Hebrew message.
 - **Payments:** one payment may cover several unpaid shifts of the same
   babysitter. When paying, always look up her other unpaid shifts and offer to
   combine them (all ticked by default).

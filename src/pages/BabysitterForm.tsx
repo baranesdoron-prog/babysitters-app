@@ -14,11 +14,13 @@ import { useLoad } from '@/hooks/useLoad'
 import { uploadPhoto } from '@/lib/photos'
 import { supabase } from '@/lib/supabase'
 import type { ImportedContact } from '@/lib/contacts'
+import { isValidBirthYear, sitterAgeLabel } from '@/lib/sitters'
 import type { Babysitter, RateType, SitterTerms } from '@/lib/types'
 
 /** Her shared profile — edited only by the family that added her (and by her). */
 type Profile = Pick<Babysitter, 'full_name' | 'night_ok' | 'helps_homework' | 'can_pickup' | 'has_child_seat' | 'shared' | 'photo_path'> & {
   phone: string
+  birth_year: string
 }
 /** My family's own terms with her — private to my family. */
 type Terms = Pick<SitterTerms, 'day_rate_type' | 'night_rate_type' | 'active'> & { day_rate: string; night_rate: string; notes: string }
@@ -32,6 +34,7 @@ const EMPTY_PROFILE: Profile = {
   can_pickup: false,
   has_child_seat: false,
   shared: false,
+  birth_year: '',
 }
 const EMPTY_TERMS: Terms = { day_rate_type: 'hourly', day_rate: '', night_rate_type: 'hourly', night_rate: '', notes: '', active: true }
 
@@ -68,15 +71,17 @@ export function BabysitterForm({ myFamilyId, contact }: {
 
   const { data: existing, error, reload } = useLoad(async () => {
     if (isNew) return null
-    const [sitter, myTerms] = await Promise.all([
+    const [sitter, myTerms, addedBy] = await Promise.all([
       supabase.from('babysitters').select('*').eq('id', id!).single(),
       supabase.from('family_babysitters').select('*').eq('babysitter_id', id!).maybeSingle(),
+      // Who added her to the app — for "קיבלתי את המספר שלך מ…".
+      supabase.rpc('babysitter_added_by', { p_babysitter: id! }),
     ])
     if (sitter.error) throw new Error('לא מצאנו את הבייביסיטר.')
     const b = sitter.data as Babysitter
     const t = myTerms.data as SitterTerms | null
     if (b.family_id !== myFamilyId && !t) throw new Error('הבייביסיטר הזאת לא ברשימה שלכם.')
-    return { sitter: b, terms: t }
+    return { sitter: b, terms: t, addedBy: (addedBy.data as string | null) ?? null }
   }, [id, myFamilyId])
 
   useEffect(() => {
@@ -91,6 +96,7 @@ export function BabysitterForm({ myFamilyId, contact }: {
       can_pickup: b.can_pickup,
       has_child_seat: b.has_child_seat,
       shared: b.shared,
+      birth_year: b.birth_year?.toString() ?? '',
     })
     if (t) {
       setTerms({
@@ -109,6 +115,7 @@ export function BabysitterForm({ myFamilyId, contact }: {
 
   // Did my family add her? Then my family edits her profile; otherwise only my own terms.
   const owned = isNew || existing?.sitter.family_id === myFamilyId
+  const birthYearOk = profile.birth_year === '' || isValidBirthYear(profile.birth_year)
   const setP = <K extends keyof Profile>(key: K, value: Profile[K]) => setProfile({ ...profile, [key]: value })
   const setT = <K extends keyof Terms>(key: K, value: Terms[K]) => setTerms({ ...terms, [key]: value })
 
@@ -144,6 +151,7 @@ export function BabysitterForm({ myFamilyId, contact }: {
         can_pickup: profile!.can_pickup,
         has_child_seat: profile!.can_pickup && profile!.has_child_seat,
         shared: profile!.shared,
+        birth_year: profile!.birth_year ? Number(profile!.birth_year) : null,
       }
       const res = isNew
         ? await supabase.from('babysitters').insert(row).select('id').single()
@@ -234,9 +242,26 @@ export function BabysitterForm({ myFamilyId, contact }: {
           <Field label="שם" htmlFor="name">
             <Input id="name" required value={profile.full_name} onChange={(e) => setP('full_name', e.target.value)} />
           </Field>
-          <Field label="טלפון" htmlFor="phone">
-            <Input id="phone" type="tel" dir="ltr" inputMode="tel" value={profile.phone} onChange={(e) => setP('phone', e.target.value)} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="טלפון" htmlFor="phone">
+              <Input id="phone" type="tel" dir="ltr" inputMode="tel" value={profile.phone} onChange={(e) => setP('phone', e.target.value)} />
+            </Field>
+            <Field label="שנת לידה" htmlFor="birthYear" hint={birthYearOk ? sitterAgeLabel(Number(profile.birth_year)) ?? undefined : undefined}>
+              <Input
+                id="birthYear"
+                dir="ltr"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="2006"
+                aria-invalid={(profile.birth_year !== '' && !birthYearOk) || undefined}
+                value={profile.birth_year}
+                onChange={(e) => setP('birth_year', e.target.value.replace(/\D/g, ''))}
+              />
+            </Field>
+          </div>
+          {profile.birth_year.length === 4 && !birthYearOk && (
+            <p className="text-destructive text-sm">שנת לידה לא סבירה (גיל 14–80).</p>
+          )}
         </Section>
       ) : (
         <Section>
@@ -248,6 +273,7 @@ export function BabysitterForm({ myFamilyId, contact }: {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {profile.birth_year && <Tag>{sitterAgeLabel(Number(profile.birth_year))}</Tag>}
             {profile.night_ok && <Tag>עושה לילות</Tag>}
             {profile.helps_homework && <Tag>עוזרת בשיעורים</Tag>}
             {profile.can_pickup && <Tag>יכולה לאסוף</Tag>}
@@ -263,6 +289,8 @@ export function BabysitterForm({ myFamilyId, contact }: {
         <IntroMeetings
           babysitterId={id!}
           name={profile.full_name}
+          phone={profile.phone || null}
+          addedBy={existing.addedBy}
           metAt={existing.terms.met_at}
           contact={contact}
           onConfirmed={reload}
@@ -327,7 +355,7 @@ export function BabysitterForm({ myFamilyId, contact }: {
       </Section>
 
       {saveError && <ErrorText>{saveError}</ErrorText>}
-      <PrimaryButton type="submit" disabled={busy}>{busy ? 'שומרים…' : 'שמירה'}</PrimaryButton>
+      <PrimaryButton type="submit" disabled={busy || (owned && !birthYearOk)}>{busy ? 'שומרים…' : 'שמירה'}</PrimaryButton>
     </form>
       {owned && !isNew && login && (
         <LoginSection kind="babysitter" id={id!} loginEmail={login.email} onChange={reloadLogin} />

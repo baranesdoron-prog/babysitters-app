@@ -37,6 +37,8 @@ export interface Babysitter {
   helps_homework: boolean
   can_pickup: boolean
   has_child_seat: boolean
+  /** Year of birth, for a record of her age. */
+  birth_year: number | null
   /** Offered to other families that share too. */
   shared: boolean
 }

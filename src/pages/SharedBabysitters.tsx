@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
 import { Empty, ErrorText, Loading, PageHeader, SecondaryButton, Tag } from '@/components/bits'
 import { useLoad } from '@/hooks/useLoad'
-import { fetchMySitters } from '@/lib/sitters'
+import { fetchMySitters, sitterAgeLabel } from '@/lib/sitters'
 import { fetchBabysitterRatings } from '@/lib/ratings'
 import { RatingBadge } from '@/components/Rating'
 import { supabase } from '@/lib/supabase'
@@ -61,7 +61,13 @@ export function SharedBabysitters() {
                 <span className="truncate text-[17px] font-bold">{b.full_name}</span>
                 <RatingBadge summary={data.ratings.get(b.id)} />
               </p>
-              {b.phone && <p className="text-muted-foreground text-sm"><span dir="ltr">{b.phone}</span></p>}
+              {(b.phone || b.birth_year) && (
+                <p className="text-muted-foreground text-sm">
+                  {b.phone && <span dir="ltr">{b.phone}</span>}
+                  {b.phone && b.birth_year && ' · '}
+                  {sitterAgeLabel(b.birth_year)}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

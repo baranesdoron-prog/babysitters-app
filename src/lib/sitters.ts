@@ -24,3 +24,16 @@ export async function fetchMySitters({ activeOnly = false } = {}): Promise<MySit
     }))
     .sort((a, b) => Number(b.active) - Number(a.active) || a.full_name.localeCompare(b.full_name, 'he'))
 }
+
+/** Her age this year from her year of birth ("בת 19"), or null. */
+export function sitterAgeLabel(birthYear: number | null | undefined) {
+  if (!birthYear) return null
+  return `בת ${new Date().getFullYear() - birthYear}`
+}
+
+/** A year of birth that gives an age of 14–80 this year. */
+export function isValidBirthYear(text: string) {
+  if (!/^\d{4}$/.test(text)) return false
+  const age = new Date().getFullYear() - Number(text)
+  return age >= 14 && age <= 80
+}

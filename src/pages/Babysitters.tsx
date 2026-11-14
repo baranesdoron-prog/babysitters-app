@@ -5,7 +5,7 @@ import { Avatar } from '@/components/Avatar'
 import { CallButton, Empty, ErrorText, Fab, Loading, PageHeader, Pill, Tag } from '@/components/bits'
 import { useLoad } from '@/hooks/useLoad'
 import { formatRate } from '@/lib/labels'
-import { canBook, fetchMySitters } from '@/lib/sitters'
+import { canBook, fetchMySitters, sitterAgeLabel } from '@/lib/sitters'
 import { fetchBabysitterRatings } from '@/lib/ratings'
 import { RatingBadge } from '@/components/Rating'
 import type { MySitter } from '@/lib/types'
@@ -37,7 +37,13 @@ export function Babysitters() {
                   <span className="truncate text-[17px] font-bold">{b.full_name}</span>
                   <RatingBadge summary={data!.ratings.get(b.id)} />
                 </span>
-                {b.phone && <span className="text-muted-foreground text-sm" dir="ltr">{b.phone}</span>}
+                {(b.phone || b.birth_year) && (
+                  <span className="text-muted-foreground text-sm">
+                    {b.phone && <span dir="ltr">{b.phone}</span>}
+                    {b.phone && b.birth_year && ' · '}
+                    {sitterAgeLabel(b.birth_year)}
+                  </span>
+                )}
                 {!b.active && <span className="text-muted-foreground text-sm">לא פעילה</span>}
               </span>
               <ChevronLeft className="text-subtle-foreground ms-auto size-5 shrink-0" aria-hidden="true" />

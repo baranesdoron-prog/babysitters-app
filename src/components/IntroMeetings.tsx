@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { CalendarCheck, CheckCircle2, X } from 'lucide-react'
 
 import { BottomSheet } from '@/components/BottomSheet'
+import { WhatsAppButton } from '@/components/WhatsAppButton'
+import { introText, type FamilyForIntro } from '@/lib/whatsapp'
 import { DateInput } from '@/components/DateInput'
 import { ErrorText, Field, Loading, PrimaryButton, SecondaryButton, Section, TextButton } from '@/components/bits'
 import { Input } from '@/components/ui/input'
@@ -15,9 +17,13 @@ import { formatDayHeader, formatShortDate, formatTime, localParts, todayKey, zon
  * can't be booked until a meeting has taken place and we confirm "we met"
  * (confirm_met_babysitter(); the database enforces both).
  */
-export function IntroMeetings({ babysitterId, name, metAt, contact, onConfirmed }: {
+export function IntroMeetings({ babysitterId, name, phone, addedBy, metAt, contact, onConfirmed }: {
   babysitterId: string
   name: string
+  /** Her phone, for the WhatsApp introduction message. */
+  phone: string | null
+  /** The parent who added her to the app ("קיבלתי את המספר שלך מ…"). */
+  addedBy: string | null
   metAt: string | null
   /** Who she'll meet — prefilled from my profile. */
   contact: { name: string; phone: string | null }
@@ -33,15 +39,25 @@ export function IntroMeetings({ babysitterId, name, metAt, contact, onConfirmed 
   const [err, setErr] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
 
-  const { data: meetings, error, reload } = useLoad(async () => {
-    const res = await supabase
-      .from('intro_meetings')
-      .select('*')
-      .eq('babysitter_id', babysitterId)
-      .order('start_at')
+  const { data, error, reload } = useLoad(async () => {
+    const [res, kids, parents] = await Promise.all([
+      supabase.from('intro_meetings').select('*').eq('babysitter_id', babysitterId).order('start_at'),
+      // Our family, for the introduction message.
+      supabase.from('children').select('name, birth_date, gender').order('birth_date'),
+      supabase.from('app_users').select('first_name, full_name').eq('role', 'parent').order('created_at'),
+    ])
     if (res.error) throw new Error('לא הצלחנו לטעון את הפגישות.')
-    return res.data as IntroMeeting[]
+    const myFirst = contact.name.split(' ')[0]
+    const parentNames = ((parents.data ?? []) as { first_name: string | null; full_name: string | null }[])
+      .map((p) => (p.first_name || p.full_name || '').split(' ')[0])
+      .filter(Boolean)
+      .sort((a, b) => Number(b === myFirst) - Number(a === myFirst))
+    return {
+      meetings: res.data as IntroMeeting[],
+      family: { parents: parentNames, kids: (kids.data ?? []) as FamilyForIntro['kids'] },
+    }
   }, [babysitterId])
+  const meetings = data?.meetings
 
   if (metAt) {
     return (
@@ -102,6 +118,9 @@ export function IntroMeetings({ babysitterId, name, metAt, contact, onConfirmed 
       <p className="bg-pending-soft text-pending-foreground rounded-lg p-3 text-[15px]">
         לפני שקובעים איתה משמרות, נפגשים איתה פעם אחת או יותר. אחרי שהפגישה התקיימה, מאשרים כאן שנפגשתם.
       </p>
+      {data && (
+        <WhatsAppButton phone={phone} text={introText(name, contact.name, addedBy, data.family)} label="הודעת היכרות בוואטסאפ" />
+      )}
       {error && <ErrorText>{error}</ErrorText>}
       {!meetings && !error && <Loading />}
       {live.length > 0 && (
