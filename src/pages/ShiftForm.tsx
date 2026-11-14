@@ -24,7 +24,10 @@ import { isAvailable } from '@/lib/availability'
 import { isOvernight, splitShift } from '@/lib/billing'
 import { CAR_SEAT_ITEM, formatRate, itemKindLabels } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
-import type { Availability, Babysitter, Child, ItemKind, ItemTemplate, PickupBy } from '@/lib/types'
+import { fetchMySitters } from '@/lib/sitters'
+import { fetchBabysitterRatings } from '@/lib/ratings'
+import { RatingBadge } from '@/components/Rating'
+import type { Availability, Child, ItemKind, ItemTemplate, PickupBy } from '@/lib/types'
 import { addDays, cn, formatDayHeader, formatHours, todayKey, zonedToIso } from '@/lib/utils'
 
 type DraftItem = { kind: ItemKind; description: string; child_id: string | null }
@@ -65,17 +68,18 @@ export function ShiftForm() {
   const { data, error } = useLoad(async () => {
     const [settings, sitters, avail, children, templates] = await Promise.all([
       fetchSettings(),
-      supabase.from('babysitters').select('*').eq('active', true).order('full_name'),
+      fetchMySitters({ activeOnly: true }),
       supabase.from('availability').select('*'),
       supabase.from('children').select('*').order('birth_date', { ascending: false }),
       supabase.from('item_templates').select('*').eq('auto_on', 'night'),
     ])
-    if (sitters.error || avail.error || children.error || templates.error) {
+    if (avail.error || children.error || templates.error) {
       throw new Error('לא הצלחנו לטעון את הנתונים למשמרת.')
     }
     return {
       settings,
-      sitters: sitters.data as Babysitter[],
+      sitters,
+      ratings: await fetchBabysitterRatings(sitters.map((b) => b.id)),
       availability: avail.data as Availability[],
       children: children.data as Child[],
       templates: templates.data as ItemTemplate[],
@@ -310,7 +314,7 @@ export function ShiftForm() {
                   <input type="radio" name="booked" className="accent-primary size-5 shrink-0" checked={bookedId === b.id} onChange={() => setBookedId(b.id)} />
                   <Avatar name={b.full_name} path={b.photo_path} size={40} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold">{b.full_name}</span>
+                    <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{b.full_name}</span><RatingBadge summary={data.ratings.get(b.id)} /></span>
                     <span className="text-muted-foreground block truncate text-sm">
                       {hasNight ? `לילה ${formatRate(b.night_rate_type, b.night_rate)}` : formatRate(b.day_rate_type, b.day_rate)}
                       {!isMarked(b.id) && ' · לא סימנה זמינות'}
@@ -337,7 +341,7 @@ export function ShiftForm() {
                 <span className="font-display text-primary w-5 text-center text-lg font-semibold">{i + 1}</span>
                 <Avatar name={b.full_name} path={b.photo_path} size={40} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold">{b.full_name}</p>
+                  <p className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{b.full_name}</span><RatingBadge summary={data.ratings.get(b.id)} /></p>
                   <p className="text-muted-foreground truncate text-sm">
                     {formatRate(b.day_rate_type, b.day_rate)}
                     {hasNight && ` · לילה ${formatRate(b.night_rate_type, b.night_rate)}`}

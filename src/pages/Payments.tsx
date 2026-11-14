@@ -21,7 +21,7 @@ import { useLoad } from '@/hooks/useLoad'
 import { computeAmount, shiftAmount, splitShift } from '@/lib/billing'
 import { paymentMethodLabels } from '@/lib/labels'
 import { supabase } from '@/lib/supabase'
-import type { Babysitter, Payment, PaymentMethod, Shift } from '@/lib/types'
+import type { Babysitter, Payment, PaymentMethod, Shift, SitterTerms } from '@/lib/types'
 import { formatDayHeader, formatMoney, formatShortDate, formatTime, localParts } from '@/lib/utils'
 
 // No API or redirect back exists for personal Bit / PayBox payments: we copy
@@ -51,7 +51,7 @@ export function Payments() {
   const leftFor = useRef<{ sitterId: string; method: 'bit' | 'paybox' } | null>(null)
 
   const { data, error, reload } = useLoad(async () => {
-    const [settings, unpaid, payments] = await Promise.all([
+    const [settings, unpaid, payments, terms] = await Promise.all([
       fetchSettings(),
       supabase
         .from('shifts')
@@ -66,13 +66,20 @@ export function Payments() {
         .select('*, babysitter:babysitters(full_name)')
         .order('paid_at', { ascending: false })
         .limit(20),
+      // My family's rates with each babysitter.
+      supabase.from('family_babysitters').select('*'),
     ])
-    if (unpaid.error || payments.error) throw new Error('לא הצלחנו לטעון את התשלומים.')
-    // Shifts without a stored amount get one from the babysitter's rates.
-    const shifts = (unpaid.data as unknown as UnpaidShift[]).map((s) => ({
-      ...s,
-      computed_amount: s.computed_amount ?? computeAmount(s.babysitter, splitShift(s.start_at, s.end_at, settings.night_start), s.merged),
-    }))
+    if (unpaid.error || payments.error || terms.error) throw new Error('לא הצלחנו לטעון את התשלומים.')
+    const ratesBySitter = new Map((terms.data as SitterTerms[]).map((t) => [t.babysitter_id, t]))
+    // Shifts without a stored amount get one from my family's rates with her.
+    const shifts = (unpaid.data as unknown as UnpaidShift[]).map((s) => {
+      const rates = ratesBySitter.get(s.babysitter_id!)
+      return {
+        ...s,
+        computed_amount: s.computed_amount
+          ?? (rates ? computeAmount(rates, splitShift(s.start_at, s.end_at, settings.night_start), s.merged) : 0),
+      }
+    })
     return { shifts, payments: payments.data as unknown as PaymentRow[] }
   }, [])
 

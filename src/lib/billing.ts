@@ -1,4 +1,6 @@
-import type { Babysitter, RateType } from './types'
+import type { RateType, SitterTerms } from './types'
+
+type Rates = Pick<SitterTerms, 'day_rate_type' | 'day_rate' | 'night_rate_type' | 'night_rate'>
 import { addDays, localParts, zonedToIso } from './utils'
 
 // Night runs from settings.night_start until this hour the next morning.
@@ -50,7 +52,7 @@ function partAmount(type: RateType, rate: number | null, hours: number) {
  * Merged: the whole shift is billed as one, at the night rate if it reaches
  * the night (otherwise the day rate).
  */
-export function computeAmount(sitter: Babysitter, split: ShiftSplit, merged: boolean) {
+export function computeAmount(sitter: Rates, split: ShiftSplit, merged: boolean) {
   let amount: number
   if (merged) {
     const total = split.dayHours + split.nightHours

@@ -6,6 +6,7 @@ import { Login } from '@/pages/Login'
 import { PendingRole } from '@/pages/PendingRole'
 import { Babysitters } from '@/pages/Babysitters'
 import { BabysitterForm } from '@/pages/BabysitterForm'
+import { SharedBabysitters } from '@/pages/SharedBabysitters'
 import { Calendar } from '@/pages/Calendar'
 import { ShiftForm } from '@/pages/ShiftForm'
 import { ShiftDetail } from '@/pages/ShiftDetail'
@@ -73,7 +74,8 @@ export function App() {
         <Route path="/shifts/new" element={<ShiftForm />} />
         <Route path="/shifts/:id" element={<ShiftDetail />} />
         <Route path="/babysitters" element={<Babysitters />} />
-        <Route path="/babysitters/:id" element={<BabysitterForm />} />
+        <Route path="/babysitters/shared" element={<SharedBabysitters />} />
+        <Route path="/babysitters/:id" element={<BabysitterForm myFamilyId={user.family_id} />} />
         <Route path="/parents" element={<Parents myId={user.id} isAdmin={user.is_admin} />} />
         <Route path="/parents/:id" element={<ParentForm myId={user.id} />} />
         <Route path="/children" element={<Children />} />

@@ -28,6 +28,7 @@ import {
 type CalendarShift = Shift & {
   babysitter: { full_name: string; photo_path: string | null } | null
   requests: { status: string; babysitter: { full_name: string } | null }[]
+  ratings: { rater: 'family' | 'babysitter' }[]
 }
 
 type View = 'week' | 'month'
@@ -67,7 +68,7 @@ export function Calendar() {
       supabase
         .from('shifts')
         .select(
-          '*, babysitter:babysitters(full_name, photo_path), requests:shift_requests(status, babysitter:babysitters(full_name))',
+          '*, babysitter:babysitters(full_name, photo_path), requests:shift_requests(status, babysitter:babysitters(full_name)), ratings:shift_ratings(rater)',
         )
         .neq('status', 'cancelled')
         .gte('end_at', zonedToIso(from, '00:00'))
@@ -208,6 +209,9 @@ function ShiftRow({ shift, nightStart }: { shift: CalendarShift; nightStart: str
   const split = splitShift(shift.start_at, shift.end_at, nightStart)
   const asking = shift.requests.find((r) => r.status === 'sent')?.babysitter?.full_name
   const name = shift.babysitter?.full_name ?? (asking ? `שואלים את ${asking}` : 'עוד לא נבחרה')
+  // Ended with a babysitter and not rated by us yet.
+  const toRate = !!shift.babysitter_id && (shift.status === 'confirmed' || shift.status === 'done')
+    && new Date(shift.end_at).getTime() < Date.now() && !shift.ratings?.some((r) => r.rater === 'family')
   return (
     <Link
       to={`/shifts/${shift.id}`}
@@ -226,7 +230,11 @@ function ShiftRow({ shift, nightStart }: { shift: CalendarShift; nightStart: str
             <span dir="ltr">{formatTime(shift.start_at)}–{formatTime(shift.end_at)}</span>
           </p>
         </div>
-        <Pill className={shiftStatusTone[shift.status]}>{shiftStatusLabels[shift.status]}</Pill>
+        {toRate ? (
+          <Pill className="bg-primary-soft text-primary-strong">לדרג</Pill>
+        ) : (
+          <Pill className={shiftStatusTone[shift.status]}>{shiftStatusLabels[shift.status]}</Pill>
+        )}
       </div>
       <SplitBar dayHours={split.dayHours} nightHours={split.nightHours} />
     </Link>

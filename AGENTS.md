@@ -61,11 +61,24 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
    the admin creates a family with its first parent, and that parent adds the
    other one from "הורים", no approval. A family has **at most two parents**
    (any genders); the trigger `limit_parents_per_family` enforces it.
+1b. **Babysitters are shared people, terms are per family.** `babysitters` holds
+   her shared profile (name, phone, photo, nights / homework / pickup / car
+   seat); only the family that added her (`babysitters.family_id`) and she
+   herself change it. Each family's own rates, notes and "active" live in
+   `family_babysitters` (private to that family; she reads her own rows). A
+   family's babysitter list = its `family_babysitters` rows (`fetchMySitters()`).
+   Sharing is per babysitter (`babysitters.shared`, owner's switch) and
+   give-to-get: a family sees other families' shared babysitters only while it
+   shares one of its own. Her availability is hers: families with her in their
+   list read it. She sees a family's kids, contacts and photos only around her
+   confirmed shift *with that family* (`sitter_active_in()`), and each family's
+   settings and rates with her.
 2. **Babysitters write through functions only:** `respond_to_request()`,
    `set_item_done()`, availability rows. Parents record payments with
    `record_payment()`. Don't add direct UPDATE policies for babysitters.
-3. A babysitter never sees other babysitters, their rates, or the girls' details
-   outside a confirmed shift (`has_active_shift()`).
+3. A babysitter never sees other babysitters, other families' rates with her,
+   or a family's kids' details outside a confirmed shift with that family
+   (`sitter_active_in()`).
 4. **Roles:** `parent` (full access), `babysitter` (her own shifts), `child` (one
    of the girls). A child has **no table access** except her own `children` row;
    her screen reads only `child_upcoming_shifts()` (confirmed shifts, next 7 days:
@@ -115,6 +128,12 @@ supabase/migrations/   numbered SQL migrations — the schema and all permission
   15 min). At the reminder the parent chooses: ping again or move to the next.
 - **Candidate list:** only babysitters available in those hours, and only those
   with `night_ok` when the shift has a night part.
+- **Ratings (mutual, per shift):** after a shift with a babysitter has ended,
+  the family rates her and she rates the family: 1–5 stars + optional comment,
+  once per side (editable), only through `rate_shift()`. Her average
+  (`babysitter_ratings()`) is shown to every family that can see her; a family's
+  average (`family_ratings()`) to the babysitters it asks or books. A comment is
+  seen only by the two sides of that shift (`shift_ratings` RLS).
 - **Payments:** one payment may cover several unpaid shifts of the same
   babysitter. When paying, always look up her other unpaid shifts and offer to
   combine them (all ticked by default).
