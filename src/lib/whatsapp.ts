@@ -1,7 +1,7 @@
 import { normalizePhone } from './contacts'
 import { ageLabel } from './labels'
 import type { Gender } from './types'
-import { ageOf, formatDayHeader, formatTime, localParts } from './utils'
+import { addDays, ageOf, formatDayHeader, formatTime, localParts, todayKey } from './utils'
 
 /** "052-1234567" → "972521234567" (wa.me wants the country code, no +, no leading 0). */
 export function waNumber(phone: string | null | undefined) {
@@ -47,15 +47,25 @@ function waitVerb(kids: Kid[]) {
   return kids.every((k) => k.gender === 'girl') ? 'מחכות' : 'מחכים'
 }
 
+/** "היום, מ-20:00 עד 00:00" / "מחר, יום ב׳, 16 בנובמבר, מ-…" / "ביום ב׳, 16 בנובמבר, מ-…" */
+function whenFromToday(s: ShiftForMessage) {
+  const date = localParts(s.start_at).date
+  const hours = `מ-${formatTime(s.start_at)} עד ${formatTime(s.end_at)}`
+  if (date === todayKey()) return `היום, ${hours}`
+  if (date === addDays(todayKey(), 1)) return `מחר, ${when(s)}`
+  return `ב${when(s)}`
+}
+
 /** Reminder for a confirmed shift — warm, like a message from a parent. */
 export function shiftReminderText(sitterName: string, s: ShiftForMessage, from: string, kids: Kid[] = []) {
   const names = kidsName(kids)
   return [
     `היי ${firstName(sitterName)}, מה שלומך?`,
-    `רק רציתי להזכיר שאת אצלנו ב${when(s)}.`,
+    `זוכרת שאת מגיעה אלינו ${whenFromToday(s)}?`,
+    // Only when she picks up: if we do, it's not her concern.
     s.pickup_by === 'babysitter'
       ? `את אוספת${names ? ` את ${names}` : ''} מהגן, וכל הפרטים נמצאים באפליקציה.`
-      : 'אנחנו נאסוף מהגן, אז אפשר להגיע ישר אלינו.',
+      : null,
     s.notes ? `עוד משהו קטן: ${s.notes}` : null,
     names ? `${names} כבר ${waitVerb(kids)} לך!` : null,
     `תודה רבה, ${firstName(from)}`,
